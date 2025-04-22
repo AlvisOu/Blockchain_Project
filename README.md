@@ -18,3 +18,8 @@ Member 4:
     Name: John Zhang Dong
     UNI:  jzd2103
 
+Current issues:
+- private key is lowkey not private rn
+
+
+Todo:
