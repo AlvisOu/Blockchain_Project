@@ -1,24 +1,31 @@
 from blockchain import Transaction, Block, Chain, Wallet, verify
+import time
 
 if __name__ == "__main__":
+    start_time = time.time()
     # Create blockchain instance
     chain = Chain()
 
     # Create two wallets
-    alice = Wallet("Alice")
-    bob = Wallet("Bob")
+    sunny = Wallet("Sunny")
+    alvis = Wallet("Alvis")
+    sky = Wallet("Sky")
+    john = Wallet("John")
 
-    # Alice sends Bob 10 coins
-    print("\nAlice sending 10 coins to Bob...\n")
-    alice.send_money(10, bob.public_key, bob.name, chain)
+    # sunny sends alvis 20 bucks
+    # alvis sends sky 10 bucks
+    # john sends sky 30 bucks
+    # sky sends sunny 40 bucks
 
-    # Print entire chain
-    print("\n=== Blockchain ===")
-    for idx, block in enumerate(chain.chain):
-        print(f"Block #{idx}")
-        print(f"  Hash:      {block.hash}")
-        print(f"  Prev Hash: {block.prev_hash}")
-        print(f"  TX:        {block.transaction.amount} from {block.transaction.payer[:10]}... to {block.transaction.payee[:10]}...")
-        print(f"  Nonce:     {block.nonce}")
-        print(f"  Time:      {block.timestamp}")
-        print()
+    # genesis_wallet only exists in context of chain
+    chain.genesis_wallet.send_money(20, sunny, chain)
+    sunny.send_money(10, sky, chain)
+    sunny.send_money(10, john, chain)
+
+    sunny.send_money(20, alvis, chain)
+    # alvis.send_money(10, sky, chain)
+    # john.send_money(30, sky, chain)
+    # sky.send_money(40, sunny, chain)
+
+    chain.print_chain(start_time)
+    chain.print_balances()
