@@ -19,10 +19,17 @@ if __name__ == "__main__":
 
     # genesis_wallet only exists in context of chain
     chain.genesis_wallet.send_money(20, sunny, chain)
+    chain.mine_block(john)
+    chain.print_balances()
+
     sunny.send_money(10, sky, chain)
     sunny.send_money(10, john, chain)
+    chain.print_balances()
+    john.send_money(50, sunny, chain)
+    sunny.send_money(10, sky, chain)
+    chain.mine_block(sky)
 
-    sunny.send_money(20, alvis, chain)
+    # sunny.send_money(20, alvis, chain)
     # alvis.send_money(10, sky, chain)
     # john.send_money(30, sky, chain)
     # sky.send_money(40, sunny, chain)
