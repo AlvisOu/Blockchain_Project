@@ -14,8 +14,6 @@ def verify(data: str, signature: str, public_hex: str) -> bool:
     except Exception:
         return False
 
-# Class definitions
-    
 class Wallet:
     """
         Essentially identifies a user. Contains their public/private key and
@@ -64,10 +62,12 @@ class Transaction:
             amount: amount of money being sent
             payer: money sender
             payee: money receiver
+            timestamp: when the transaction was created
         """
         self.amount = amount
         self.payer = payer
         self.payee = payee
+        self.timestamp = time.time()
 
     def to_dict(self): # for hashing
         """
@@ -85,7 +85,7 @@ class Transaction:
             Converts the transaction into a string which is used for signing
             the block.
         """
-        return f"{self.amount}:{self.payer.public_key}->{self.payee.public_key}"
+        return f"{self.amount}:{self.payer.public_key}->{self.payee.public_key}:{self.timestamp}"
     
 class Block:
     """
@@ -98,7 +98,7 @@ class Block:
             prev_hash: hash of previous block. 64 0s for the first block
             transactions: list of transactions associated with this block
             nonce: a specific value that makes hash start with X number of 0s
-            timestamp: when the block was made
+            timestamp: when the block was made.
         """
         self.prev_hash = prev_hash
         self.transactions = transactions
@@ -167,12 +167,16 @@ class Chain:
             Put transaction into mempool if it is valid.
         """
         if not verify(transaction.to_sign(), sign, transaction.payer.public_key):
-            print("Invalid signature, block rejected.")
+            print("Invalid signature, transaction rejected.")
             return False
         
         if (transaction.payer != "coinbase" and 
             (self.get_effective_balance(transaction.payer) < transaction.amount)):
-            print("Not enough money, block rejected.")
+            print("Not enough money, transaction rejected.")
+            return False
+        
+        if (transaction.payee == "coinbase"):
+            print("Cannot give money to coinbase, transaction rejected.")
             return False
         
         self.mempool.append((transaction, sign))
