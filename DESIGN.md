@@ -101,7 +101,10 @@ functionality, including: - Adding blocks - Mining blocks - Tracking the balance
 
         We may change this system so that we simply broadcast the first block
         as an empty block (contains no transaction), and the first Wallet to
-        mine it will get the genesis wealth.
+        mine it will get the genesis wealth. To do this, we may implement a
+        timer system so that every, say, 30 seconds, if no transactions have
+        been added to the mempool, a block will just be created automatically
+        to keep the blockchain progressing.
 
     Now, lets go over some of the functions:
 
@@ -192,8 +195,6 @@ this one blockchain.
 
     If these above feature are attained, then the core of the assignment
     will be completed.
-
-
 
 FUTURE DESIGN CONSIDERATIONS:
 There are several optional areas of improvement we can make. Given time,
