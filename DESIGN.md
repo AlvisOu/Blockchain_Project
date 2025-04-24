@@ -161,11 +161,39 @@ this one blockchain.
     two blocks being created at nearly the same time, a node must pick the
     blockchain with the most PoW.
 
+    To do this, we will use the following protocol:
+    During initialization, every single peer initialize with the exact
+    same process. I.e., if there are four nodes, instead of one node doing the
+    initialization and broadcasting it to everyone else, every single peer
+    will simply just follow an identical initialization process. This should
+    cause every node to create an identical block, which will be broadcast to
+    every other peer, thus starting the mining of the first block.
+
+    Obviously, this doesn't address the case where a peer joins later or
+    disconnects and reconnects later. In this case, the peer will request
+    a copy of the blockchain from every other peer. It will then compare each
+    peer's blockchain and take the longest one there is.
+
+    For forking, we will address simultaneous blocks on a high level. If,
+    say, there are two chains, and a fork occurs creating blocks A and B,
+    the chains will individually just accept whatever block comes first,
+    since both blocks will have the same height and thus have no priority
+    over the other. This creates a scenario where chain 1 may lead with
+    block A, while chain 2 leads with block B. At this point, it is a matter
+    of which block will be mined next. If A's block is mined next, chain 1
+    will simply append it, while chain 2 will detect that this new block is
+    not only inconsistent with its own chain but that it also has a longer
+    height. In this case, chain 2 will reach out to other peers to find the
+    peer with the matching block. When found, it will simply replace its own
+    chain with this new longest chain.
+
     We will also need to test our blockchain protocol for resilience towards
     invalid transactions and modifications.
 
     If these above feature are attained, then the core of the assignment
     will be completed.
+
+
 
 FUTURE DESIGN CONSIDERATIONS:
 There are several optional areas of improvement we can make. Given time,
@@ -175,3 +203,11 @@ multiple transactions (blocks already contain multiple transactions,
 but not using a merkle tree). A merkle tree's main advantage is to
 verify the existance of a transaction in a block without needing
 the entire block, making hashing efficient.
+
+
+MISC NOTES:
+Broadcasting the blocks should occur within the mining of the block.
+
+Also, while mining, the miner should check for other block broadcasts.
+If it hears a new block broadcasted, it should stop mining the curr
+block and mine the new block.
