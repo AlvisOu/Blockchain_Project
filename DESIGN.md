@@ -71,7 +71,7 @@ functionality, including: - Adding blocks - Mining blocks - Tracking the balance
 
     The first step of the chain class is initialization. Obviously, someone has
     to start with some money for this crypto economy to work.
-    
+
     In the initialization, we follow the steps below:
     - Create the coinbase Wallet (the bank)
     - Create the first 'real' user (Satoshi Nakamoto)
@@ -99,12 +99,12 @@ functionality, including: - Adding blocks - Mining blocks - Tracking the balance
         a transaction in, no blocks can exist, and no Wallets will ever have
         money to spend and thus create a transaction (chicken and egg problem).
 
-        We may change this system so that we simply broadcast the first block
+        We plan to change this system so that we broadcast the first block
         as an empty block (contains no transaction), and the first Wallet to
         mine it will get the genesis wealth. To do this, we may implement a
-        timer system so that every, say, 30 seconds, if no transactions have
-        been added to the mempool, a block will just be created automatically
-        to keep the blockchain progressing.
+        timer system so that every, say, 30 seconds, it will check if there are
+        still no transactions in the mempool. If that is the case,a block will
+        just be created automatically to keep the blockchain progressing.
 
     Now, lets go over some of the functions:
 
@@ -177,7 +177,7 @@ this one blockchain.
     a copy of the blockchain from every other peer. It will then compare each
     peer's blockchain and take the longest one there is.
 
-    For forking, we will address simultaneous blocks on a high level. If,
+    For forking, we will address simultaneous blocks on the network level. If,
     say, there are two chains, and a fork occurs creating blocks A and B,
     the chains will individually just accept whatever block comes first,
     since both blocks will have the same height and thus have no priority
@@ -189,6 +189,11 @@ this one blockchain.
     height. In this case, chain 2 will reach out to other peers to find the
     peer with the matching block. When found, it will simply replace its own
     chain with this new longest chain.
+
+    While this replacement occurs, the node will compile a list of
+    transactions from the old chain and the new chain. Any transactions in
+    the old chain but not the new one will be added to the mempool. This
+    ensures the mempool is updated and valid.
 
     We will also need to test our blockchain protocol for resilience towards
     invalid transactions and modifications.
@@ -205,10 +210,9 @@ but not using a merkle tree). A merkle tree's main advantage is to
 verify the existance of a transaction in a block without needing
 the entire block, making hashing efficient.
 
-
 MISC NOTES:
 Broadcasting the blocks should occur within the mining of the block.
 
 Also, while mining, the miner should check for other block broadcasts.
-If it hears a new block broadcasted, it should stop mining the curr
+If it hears a new block broadcasted, it should stop mining the current
 block and mine the new block.
