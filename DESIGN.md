@@ -1,3 +1,20 @@
+Team Members
+Member 1:
+Name: Sunny Carlin Qi
+UNI: sq2284
+
+Member 2:
+Name: Alvis Ou
+UNI: ao2844
+
+Member 3:
+Name: Sky Mingyang Sun
+UNI: ms6124
+
+Member 4:
+Name: John Zhang Dong
+UNI: jzd2103
+
 BLOCKCHAIN APPLICATION:
 The goal our blockchain is to create a cryptocurrency that can be exchanged
 P2P in a decentralized manner, similar to that of Bitcoin.
@@ -216,3 +233,50 @@ Broadcasting the blocks should occur within the mining of the block.
 Also, while mining, the miner should check for other block broadcasts.
 If it hears a new block broadcasted, it should stop mining the current
 block and mine the new block.
+
+Below is an example of what our repository may be structured like:
+
+```
+micro-crypto-economy/
+│
+├── blockchain/                 # Core blockchain logic
+│   ├── __init__.py
+│   ├── wallet.py               # Wallet + signature logic
+│   ├── transaction.py          # Transaction object
+│   ├── block.py                # Block object
+│   └── chain.py                # Chain logic, mempool, mining, balances
+│
+├── network/                    # P2P network and tracker communication
+│   ├── __init__.py
+│   ├── peer.py                 # Each peer runs this (node logic)
+│   ├── tracker.py              # Tracker server
+│   └── connection.py           # Socket/gRPC wrappers (connect, broadcast)
+│
+├── scripts/                    # Simulation scripts for testing behavior
+│   ├── run_script.py           # Runs a peer using instructions in a script.txt
+│   └── example_script.txt      # Sample: Alice sends Bob 5, mine, print balance
+│
+├── tests/
+│   ├── test_chain.py           # Test mining, fork resolution, double spend
+│   ├── test_transaction.py     # Signature verification, invalid tx rejection
+│   └── ...
+│
+├── utils/
+│   ├── crypto.py               # Hashing, signing, base64 utils
+│   └── config.py               # Constants: difficulty, port #s, etc.
+│
+├── run_peer.py                 # Entrypoint to launch a peer node
+├── run_tracker.py              # Entrypoint to launch the tracker
+├── requirements.txt
+└── README.md
+```
+
+Potential script.txt for reference:
+CREATE_WALLET Alice
+CREATE_WALLET Bob
+SEND Alice 10 Bob
+SEND Alice 15 Bob
+MINE Alice
+BALANCE Alice
+BALANCE Bob
+CHAIN
