@@ -1,4 +1,4 @@
-from blockchain import Transaction, Block, Chain, Wallet, verify
+from blockchain import Chain, Wallet
 import time
 
 if __name__ == "__main__":
