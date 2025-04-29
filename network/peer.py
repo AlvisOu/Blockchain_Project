@@ -1,7 +1,7 @@
 import socket, json, time, threading
 from blockchain import Chain, Wallet, Transaction, Block
 
-# TODO: blockchain specific functions, node-to-node message protocol, thread locks
+# TODO: blockchain specific functions (stubbed out with pass), node-to-node message protocol (commented with TODO), thread locks where needed
 
 class Peer:
     """
@@ -11,12 +11,15 @@ class Peer:
         self.tracker_addr = tracker_addr
         self.tracker_port = tracker_port
         self.port = port
-        self.peers = {} # tentatively {"addre:port" as one peer_id string : socket}
+        self.peers = {} # {"addre:port" as one peer_id string : socket}
         self.wallet = Wallet(name=name)
         self.chain = Chain()
         self.socket_to_tracker = None
 
     def connect_to_tracker(self):
+        """
+        Connects to the tracker.
+        """
         try:
             self.socket_to_tracker = socket.create_connection((self.tracker_addr, self.tracker_port)) # create_connection is more robust than socket.connect then socket.bind
             print(f"[connect_to_tracker] tracker connected at {self.tracker_addr}:{self.tracker_port}")
@@ -25,12 +28,12 @@ class Peer:
 
     def get_peer_list(self):
         """
-            Get the list of peers from the tracker.
+            Get the list of peers from the tracker upon joining the network system.
         """
         try:
-            # for Sky: can data be formatted like:
+            # For Sky: can data of peer list information be formatted like:
             # data = '[ "192.168.1.5:5000", "192.168.1.6:5000" ]'
-            self.socket_to_tracker.sendall(b"GET_PEER_LIST")
+            self.socket_to_tracker.sendall(b"SYN") # For Sky: this is the handshake protocol from my side
             data = self.socket_to_tracker.recv(4096).decode()
             peer_list = json.loads(data)
             return peer_list
@@ -39,6 +42,14 @@ class Peer:
             return []
         
     def form_peer_connections(self):
+        """
+        Forms connections to each peer in the network, according to the peer list.
+        Each connection creates a thread to listen for messages from that peer.
+
+        A massive sweep of connections like this is only done when the peer joins the network.
+        After that, it will listen for connections to accept from newly joined peers and add to the peer list.
+        Or it will realize a peer has disconnected when failing to receive or send data to it, before removing it from the peer list.
+        """
         peers = self.get_peer_list()
         for peer in peers:
             if peer == f"localhost:{self.port}":
@@ -58,6 +69,10 @@ class Peer:
         self.last_refresh = time.time()
 
     def listener_thread(self):
+        """
+        Called by the genesis background thread to listen for incoming connections from newly joined peers.
+        Upon discovering a new peer, it will create a thread to listen for messages from that peer.
+        """
         listenr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listenr.bind(("localhost", self.port))
         listenr.listen()
@@ -70,6 +85,10 @@ class Peer:
             threading.Thread(target=self.receive_from_peer, args=(conn, peer_id), daemon=True).start()
 
     def receive_from_peer(self, conn, peer_id):
+        """
+        Receive messages from a peer connection.
+        Calls handle_message() to handle the message received.
+        """
         with conn:
             try:
                 buffer = ""
@@ -110,6 +129,10 @@ class Peer:
         pass
     
     def broadcast(self, msg):
+        """
+        Broadcast a message to all peers in the network.
+        This message may be a new transaction or a new block mined.
+        """
         msg_str = json.dumps(msg) + "\n" # TODO: placeholder, need to evaluate message protocol between nodes
 
         for peer_id, conn in self.peers.items():
@@ -122,16 +145,22 @@ class Peer:
                 if peer_id in self.peers:
                     del self.peers[peer_id]
 
-    # I moved this logic from the blockchain layer:
-    # For the genesis block, we don't need to do anything special to mine it, just easier if we don't trickle it down to the blockchain level
-    # Sunny's original implementation also isn't compatible with how each peer node, upon creation, already gets a wallet
-    """
-    def create_first_block(self):
-        first_wallet = Wallet("Satoshi Nakamoto")
-        initial_tx = Transaction(100, self.coinbase, first_wallet)
-        return Block("0" * 64, [initial_tx]), first_wallet
-    
-    """
+    def transfer(self, receiver_public_key: str, amount: float):
+        """
+        Creating a transaction to send money to another peer.
+        Calls broadcast() to announce the transaction to all peers.
+        """
+        transaction = Transaction(amount, self.wallet, receiver_public_key)
+
+        # TODO: tentative, need to define message protocol between nodes
+        message = {
+            "type": "transaction",
+            "data": transaction.to_dict()
+        }
+        self.broadcast(message)
+        self.wallet.send_money(amount, receiver_public_key, self.chain)
+        print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_public_key}")
+
     def genesis_block(self):
         """
         Logic to create the genesis block, if needed.
