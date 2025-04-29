@@ -36,11 +36,11 @@ class Wallet:
         raw_sign = self._sk.sign(message_bytes)
         return base64.b64encode(raw_sign).decode()
 
-    def send_money(self, amount: float, payee: "Wallet", chain: "Chain"):
+    def send_money(self, amount: float, payee_public_key: str, chain: "Chain"):
         """
             Adds a transaction to the mempool along with its signature.
         """
-        print(self.name + " sends " + str(amount) +  " to " + payee.name)
-        transaction = Transaction(amount, self, payee)
+        print(self.name + " sends " + str(amount) +  " to " + payee_public_key)
+        transaction = Transaction(amount, self, payee_public_key)
         sign = self.sign(transaction)
         chain.recv_transaction(transaction, sign)
