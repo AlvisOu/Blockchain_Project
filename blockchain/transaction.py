@@ -10,7 +10,7 @@ class Transaction:
         Transaction packages one transaction instance, containing
         info on the payer, payee, and the amount exchanged.
     """
-    def __init__(self, amount: float, payer: Wallet, payee: Wallet):
+    def __init__(self, amount: float, payer: Wallet, payee_public_key: str):
         """
             amount: amount of money being sent
             payer: money sender
@@ -19,7 +19,7 @@ class Transaction:
         """
         self.amount = amount
         self.payer = payer
-        self.payee = payee
+        self.payee_public_key = payee_public_key
         self.timestamp = time.time()
 
     def to_dict(self): # for hashing
@@ -30,7 +30,7 @@ class Transaction:
         return {
             "amount": self.amount,
             "payer": self.payer.public_key if self.payer else "coinbase",
-            "payee": self.payee.public_key
+            "payee": self.payee_public_key
         }
 
     def to_sign(self): # changes into payload for signature
