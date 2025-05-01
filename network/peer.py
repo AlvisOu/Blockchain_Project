@@ -181,9 +181,7 @@ class Peer:
         """
         Logic to create the genesis block, if needed.
         """
-        if len(self.chain.chain) == 0:
-            print("[genesis_block] Creating genesis block")
-            self.chain = Chain()
+        pass
 
     def mine_block(self):
         """
@@ -203,6 +201,7 @@ class Peer:
                 }
             }
             self.broadcast(message)
+        # TODO: Need to handle the case where a block is received from another peer, since it mined it first.
 
     def start(self):
         self.connect_to_tracker()
