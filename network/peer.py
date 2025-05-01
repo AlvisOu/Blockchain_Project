@@ -61,7 +61,7 @@ class Peer:
                     sock = socket.create_connection((ip, int(port)))
                     peer_id = f"{ip}:{port}"
                     self.peers[peer_id] = sock
-                    print(f"[form_peer_connections] connected to{peer}")
+                    print(f"[form_peer_connections] connected to {peer}")
                     threading.Thread(target=self.receive_from_peer, args=(sock, peer_id), daemon=True).start()
                 except Exception as e:
                     print(f"[refresh_peer_connections] connection error: {e}")
@@ -99,6 +99,13 @@ class Peer:
                     buffer += data
                     # TODO: actually handle the data received
                     # Should do so by calling handle_message() after parsing the buffer using a delimiter set by message protocol
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        try:
+                            msg = json.loads(line)
+                            self.handle_message(msg)
+                        except json.JSONDecodeError as e:
+                            print(f"[receive_from_peer] JSON decode error: {e}")
             except Exception as e:
                 print(f"[receive_from_peer] error: {e}")
             finally:
@@ -111,7 +118,10 @@ class Peer:
         Handle the message received from peers.
         Calls handle_block() or handle_transaction() depending on the type of message, as set by the message protocol.
         """
-        pass
+        if msg["type"] == "transaction":
+            pass
+        elif msg["type"] == "block":
+            pass
 
     def handle_block(self, block):
         """
@@ -119,14 +129,20 @@ class Peer:
         Need to call chain.update_balance()
         Need to handle forks
         """
-        pass
+        if block.prev_hash == self.chain.chain[-1].hash:
+            self.chain.add_block(block)
+            print(f"[handle_block] Block {block.hash} added to chain")
+        else:
+            print("[handle_block] Received block does not extend current chain. Ignored.")
+        # TODO: Need to handle forks
 
     def handle_transaction(self, transaction):
         """
         Handle a transaction received from another peer.
         Need to call chain.recv_transaction()
         """
-        pass
+        sign = self.wallet.sign(transaction)
+        self.chain.recv_transaction(transaction, sign)
     
     def broadcast(self, msg):
         """
@@ -165,8 +181,9 @@ class Peer:
         """
         Logic to create the genesis block, if needed.
         """
-        pass
-
+        if len(self.chain.chain) == 0:
+            print("[genesis_block] Creating genesis block")
+            self.chain = Chain()
 
     def mine_block(self):
         """
@@ -174,7 +191,18 @@ class Peer:
         Need to call chain.mine_block(), chain.add_block(), and need to broadcast the block to peers.
         Need to handle the case where a block is received from another peer, since it mined it first. 
         """
-        pass
+        block = self.chain.mine_block(self.wallet)
+        if block:
+            message = {
+                "type": "block",
+                "data": {
+                    "prev_hash": block.prev_hash,
+                    "transaction": [tx.to_dict() for tx in block.transactions],
+                    "nonce": block.nonce,
+                    "timestamp": block.timestamp
+                }
+            }
+            self.broadcast(message)
 
     def start(self):
         self.connect_to_tracker()
