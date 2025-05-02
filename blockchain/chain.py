@@ -40,6 +40,11 @@ class Chain:
         self.chain = [genesis_block]
         self.mempool: list[tuple[Transaction, str]] = [] # List of (tx, signature)
         self.update_balances(genesis_block.transactions[0])
+
+    def create_first_block(self):
+        first_wallet = Wallet("Satoshi Nakamoto")
+        initial_tx = Transaction(100, self.coinbase, first_wallet)
+        return Block("0" * 64, [initial_tx]), first_wallet
     
     def recv_transaction(self, transaction: Transaction, sign: str):
         """

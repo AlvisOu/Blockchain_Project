@@ -218,12 +218,6 @@ class Peer:
             print(f"[transfer] Transfer invalid. {self.wallet.name} not in chain.")
             return False
 
-    def genesis_block(self):
-        """
-        Logic to create the genesis block, if needed.
-        """
-        pass
-
     def mine_block(self):
         """
         Mine a block using the transactions in the mempool.
@@ -255,9 +249,6 @@ class Peer:
         self.connect_to_tracker()
         self.form_peer_connections()
         threading.Thread(target=self.listener_thread, daemon=True).start()
-
-        # Genesis case
-        self.genesis_block()
 
         # Collects transaction from mempool to mine a block every 5 seconds
         while True:
