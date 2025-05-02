@@ -110,8 +110,9 @@ class Peer:
                 print(f"[receive_from_peer] error: {e}")
             finally:
                 # we need this "if" check since the broadcast thread may have deleted that already
-                if peer_id in self.peers:
-                    del self.peers[peer_id]
+                with self.lock:
+                    if peer_id in self.peers:
+                        del self.peers[peer_id]
     
     def handle_message(self, msg):
         """
@@ -119,9 +120,28 @@ class Peer:
         Calls handle_block() or handle_transaction() depending on the type of message, as set by the message protocol.
         """
         if msg["type"] == "transaction":
-            pass
+            tx_data = msg["data"]
+            tx = Transaction(
+                amount=tx_data["amount"],
+                payer=self.wallet,
+                payee_public_key=tx_data["payee"]
+            )
+            self.handle_transaction(tx)
         elif msg["type"] == "block":
-            pass
+            block_data = msg["data"]
+            transactions = []
+            for tx in block_data["transaction"]:
+                transactions.append(Transaction(
+                    amount=tx["amount"],
+                    payer=self.wallet,
+                    payee_public_key=tx["payee"]
+                ))
+            block = Block(
+                prev_hash=block_data["prev_hash"],
+                transactions=transactions,
+                nonce=block_data["nonce"]
+            )
+            self.handle_block(block)
 
     def handle_block(self, block):
         """
@@ -129,20 +149,31 @@ class Peer:
         Need to call chain.update_balance()
         Need to handle forks
         """
-        if block.prev_hash == self.chain.chain[-1].hash:
-            self.chain.add_block(block)
-            print(f"[handle_block] Block {block.hash} added to chain")
-        else:
-            print("[handle_block] Received block does not extend current chain. Ignored.")
-        # TODO: Need to handle forks
+        with self.lock:
+            if block.prev_hash == self.chain.chain[-1].hash:
+                self.chain.add_block(block)
+                print(f"[handle_block] Block {block.hash} added to chain")
+            else:
+                for i in reversed(range(len(self.chain.chain))):
+                    if self.chain.chain[i].hash == block.prev_hash:
+                        candidate_chain = self.chain.chain[:i+1] + [block]
+                        if len(candidate_chain) > len(self.chain.chain):
+                            print("[handle_block] Longer fork found — replacing current chain.")
+                            self.chain.chain = candidate_chain
+                        else:
+                            print("[handle_block] Received block is part of a shorter fork. Ignored.")
+                        return
+
+                print("[handle_block] Received block does not connect to known chain. Ignored.")
 
     def handle_transaction(self, transaction):
         """
         Handle a transaction received from another peer.
         Need to call chain.recv_transaction()
         """
-        sign = self.wallet.sign(transaction)
-        self.chain.recv_transaction(transaction, sign)
+        with self.lock:
+            sign = self.wallet.sign(transaction)
+            self.chain.recv_transaction(transaction, sign)
     
     def broadcast(self, msg):
         """
@@ -199,7 +230,14 @@ class Peer:
         Need to call chain.mine_block(), chain.add_block(), and need to broadcast the block to peers.
         Need to handle the case where a block is received from another peer, since it mined it first. 
         """
-        block = self.chain.mine_block(self.wallet)
+        # block = self.chain.mine_block(self.wallet)
+        with self.lock:
+            latest_hash_before = self.chain.chain[-1].hash
+            block = self.chain.mine_block(self.wallet)
+            if self.chain.chain[-1].hash != latest_hash_before:
+                print("[mine_block] New block already added by peer. Aborting own block.")
+                return
+        
         if block:
             message = {
                 "type": "block",
