@@ -166,16 +166,26 @@ class Peer:
         Creating a transaction to send money to another peer.
         Calls broadcast() to announce the transaction to all peers.
         """
-        transaction = Transaction(amount, self.wallet, receiver_public_key)
+        if self.wallet.public_key in self.chain.balances:
+            current_balance = self.chain.balances[self.wallet.public_key][1]
+            if current_balance < amount:
+                print(f"[transfer] Transfer invalid. {self.wallet.name} has insufficient funds ({current_balance} < {amount}).")
+                return False
+            else:
+                transaction = Transaction(amount, self.wallet, receiver_public_key)
 
-        # TODO: tentative, need to define message protocol between nodes
-        message = {
-            "type": "transaction",
-            "data": transaction.to_dict()
-        }
-        self.broadcast(message)
-        self.wallet.send_money(amount, receiver_public_key, self.chain)
-        print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_public_key}")
+                # TODO: tentative, need to define message protocol between nodes
+                message = {
+                    "type": "transaction",
+                    "data": transaction.to_dict()
+                }
+                self.broadcast(message)
+                self.wallet.send_money(amount, receiver_public_key, self.chain)
+                print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_public_key}")
+            return True
+        else:
+            print(f"[transfer] Transfer invalid. {self.wallet.name} not in chain.")
+            return False
 
     def genesis_block(self):
         """
