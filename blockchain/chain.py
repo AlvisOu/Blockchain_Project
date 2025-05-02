@@ -33,7 +33,8 @@ class Chain:
             mempool: list of transactions not commited to blockchain yet
         """
         self.coinbase = Wallet("coinbase")
-        self.balances = {} # dict[Wallet.public_key(str), [Wallet.name(str), balance(float)]]
+        self.coinbase_public_key = '0x0'
+        self.balances = {} # dict[Wallet.public_key(str), balance(float)]
         self.reward = 50 # reward for mining
 
         genesis_block, self.genesis_wallet = self.create_first_block()
@@ -62,7 +63,7 @@ class Chain:
             print("Not enough money, transaction rejected.")
             return False
         
-        if (transaction.payee == "coinbase"):
+        if (transaction.payee_public_key == '0x0'):
             print("Cannot give money to coinbase, transaction rejected.")
             return False
         
@@ -112,18 +113,18 @@ class Chain:
             Also responsible for adding new users to balances.
         """
         payer = transaction.payer
-        payee = transaction.payee
+        payee_public_key = transaction.payee_public_key
         amount = transaction.amount
         
         # Don't care about coinbase's balance. Effectively infinite.
         if payer.name != "coinbase":
             if payer.public_key not in self.balances:
-                self.balances[payer.public_key] = [payer.name, 0]
-            self.balances[payer.public_key][1] -= amount
+                self.balances[payer.public_key] = 0
+            self.balances[payer.public_key] -= amount
         
-        if payee.public_key not in self.balances:
-            self.balances[payee.public_key] = [payee.name, 0]
-        self.balances[payee.public_key][1] += amount
+        if payee_public_key not in self.balances:
+            self.balances[payee_public_key] = 0
+        self.balances[payee_public_key] += amount
 
     def get_balance(self, payer: Wallet) -> float: # balance without mempool
         """
