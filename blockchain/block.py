@@ -28,7 +28,7 @@ class Block:
         # turn block object into singular json entity
         block_data = {
             'prev_hash': self.prev_hash,
-            'transaction': [tx.to_dict() for tx in self.transactions],
+            'transactions': [tx.to_dict() for tx in self.transactions],
             'nonce': self.nonce,
             'timestamp': self.timestamp
         }
