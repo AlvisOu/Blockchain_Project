@@ -1,5 +1,7 @@
 import socket, json, time, threading
 from blockchain import Chain, Wallet, Transaction, Block
+import pickle
+import base64
 
 # TODO: blockchain specific functions (stubbed out with pass), node-to-node message protocol (commented with TODO), thread locks where needed
 
@@ -12,6 +14,7 @@ class Peer:
         self.tracker_port = tracker_port
         self.port = port
         self.peers = {} # {"addre:port" as one peer_id string : socket}
+        self.peers_chains = {}
         self.wallet = Wallet(name=name)
         self.chain = Chain()
         self.socket_to_tracker = None
@@ -120,28 +123,27 @@ class Peer:
         Calls handle_block() or handle_transaction() depending on the type of message, as set by the message protocol.
         """
         if msg["type"] == "transaction":
-            tx_data = msg["data"]
-            tx = Transaction(
-                amount=tx_data["amount"],
-                payer=self.wallet,
-                payee_public_key=tx_data["payee"]
-            )
+            tx_bytes = base64.b64decode(msg["data"])
+            tx = pickle.loads(tx_bytes)
             self.handle_transaction(tx)
         elif msg["type"] == "block":
-            block_data = msg["data"]
-            transactions = []
-            for tx in block_data["transaction"]:
-                transactions.append(Transaction(
-                    amount=tx["amount"],
-                    payer=self.wallet,
-                    payee_public_key=tx["payee"]
-                ))
-            block = Block(
-                prev_hash=block_data["prev_hash"],
-                transactions=transactions,
-                nonce=block_data["nonce"]
-            )
+            block_bytes = base64.b64decode(msg["data"])
+            block = pickle.loads(block_bytes)
             self.handle_block(block)
+        elif msg["type"] == "chain":
+            chain_bytes = base64.b64decode(msg["data"])
+            chain = pickle.loads(chain_bytes)
+            peer = msg["sender"]
+            self.handle_chain(peer, chain)
+        elif msg["type"] == "request":
+            requester = msg["requester"]
+            self.send_chain(requester)
+
+    def handle_chain(self, peer, chain):
+        """
+        Handle a chain received from another peer
+        """
+        self.peers_chains[peer] = chain
 
     def handle_block(self, block):
         """
@@ -191,6 +193,35 @@ class Peer:
                 # we need this "if" check since the listener thread may have deleted that already
                 if peer_id in self.peers:
                     del self.peers[peer_id]
+    
+    def request_chains(self):
+        for peer_id, conn in self.peers.items():
+            msg = {
+                "type": "request",
+                "requester": f"localhost:{self.port}"
+            }
+            msg_str = json.dumps(msg) + "\n"
+            try:
+                conn.sendall(msg_str.encode())
+            except Exception as e:
+                print(f"[broadcast] error: {e}")
+                conn.close()
+                # we need this "if" check since the listener thread may have deleted that already
+                if peer_id in self.peers:
+                    del self.peers[peer_id]
+        
+    def send_chain(self, requester):
+        pickled_chain = pickle.dumps(self.chain)
+        # Encode the bytes into a JSON-safe string
+        encoded_chain = base64.b64encode(pickled_chain).decode('utf-8')
+        msg = {
+            "type": "chain",
+            "sender": f"localhost:{self.port}",
+            "data": encoded_chain
+        }
+        msg_str = json.dumps(msg) + "\n"
+        conn = self.peers[requester]
+        conn.sendall(msg_str)
 
     def transfer(self, receiver_public_key: str, amount: float):
         """
@@ -204,11 +235,13 @@ class Peer:
                 return False
             else:
                 transaction = Transaction(amount, self.wallet, receiver_public_key)
-
+                pickled_transaction = pickle.dumps(transaction)
+                # Encode the bytes into a JSON-safe string
+                encoded_transaction = base64.b64encode(pickled_transaction).decode('utf-8')
                 # TODO: tentative, need to define message protocol between nodes
                 message = {
                     "type": "transaction",
-                    "data": transaction.to_dict()
+                    "data": encoded_transaction
                 }
                 self.broadcast(message)
                 self.wallet.send_money(amount, receiver_public_key, self.chain)
@@ -233,14 +266,12 @@ class Peer:
                 return
         
         if block:
+            pickled_block = pickle.dumps(block)
+            # Encode the bytes into a JSON-safe string
+            encoded_block = base64.b64encode(pickled_block).decode('utf-8')
             message = {
                 "type": "block",
-                "data": {
-                    "prev_hash": block.prev_hash,
-                    "transaction": [tx.to_dict() for tx in block.transactions],
-                    "nonce": block.nonce,
-                    "timestamp": block.timestamp
-                }
+                "data": encoded_block
             }
             self.broadcast(message)
         # TODO: Need to handle the case where a block is received from another peer, since it mined it first.
