@@ -44,3 +44,23 @@ class Wallet:
         transaction = Transaction(amount, self, payee_public_key)
         sign = self.sign(transaction)
         chain.recv_transaction(transaction, sign)
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "private_key": self.private_key,
+            "public_key": self.public_key
+        }
+
+    @staticmethod
+    def from_dict(data):
+        wallet = Wallet.__new__(Wallet)  # bypass __init__, so we don't generate new keys
+        wallet.name = data["name"]
+        wallet.private_key = data["private_key"]
+        wallet.public_key = data["public_key"]
+        
+        # Reconstruct signing and verifying keys
+        wallet._sk = SigningKey.from_string(bytes.fromhex(wallet.private_key), curve=SECP256k1)
+        wallet._vk = VerifyingKey.from_string(bytes.fromhex(wallet.public_key), curve=SECP256k1)
+        
+        return wallet
