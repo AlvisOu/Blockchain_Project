@@ -142,7 +142,7 @@ class Chain:
         for tx, _ in self.mempool:
             if tx.payer and tx.payer.public_key == payer.public_key:
                 balance -= tx.amount
-            elif tx.payee and tx.payee.public_key == payer.public_key:
+            elif tx.payee_public_key == payer.public_key:
                 balance += tx.amount
         return balance
 
@@ -165,7 +165,7 @@ class Chain:
             print(f"  Prev Hash: {block.prev_hash}")
             print(f"  Transactions:")
             for tx in block.transactions:
-                print(f"     TX:     {tx.amount} from {tx.payer.name} to {tx.payee.name}")
+                print(f"     TX:     {tx.amount} from {tx.payer.name} to {tx.payee_public_key}")
             print(f"  Nonce:     {block.nonce}")
             print(f"  Time:      {block.timestamp - start_time:.2f}")
             print()
