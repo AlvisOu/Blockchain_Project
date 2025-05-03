@@ -43,9 +43,9 @@ class Chain:
         self.update_balances(genesis_block.transactions[0])
 
     def create_first_block(self):
-        first_wallet = Wallet("Satoshi Nakamoto")
-        initial_tx = Transaction(100, self.coinbase, first_wallet)
-        return Block("0" * 64, [initial_tx]), first_wallet
+        first_wallet_public_key = '0x1'
+        initial_tx = Transaction(100, self.coinbase, first_wallet_public_key)
+        return Block("0" * 64, [initial_tx]), first_wallet_public_key
     
     def recv_transaction(self, transaction: Transaction, sign: str):
         """
