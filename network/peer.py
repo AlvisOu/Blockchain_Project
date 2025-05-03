@@ -18,6 +18,9 @@ class Peer:
         self.wallet = Wallet(name=name)
         self.chain = Chain()
         self.socket_to_tracker = None
+        self.request_mode = False
+        self.requests = 0
+        self.requests_needed = 0
         self.lock = threading.Lock()
 
     def connect_to_tracker(self):
@@ -99,11 +102,16 @@ class Peer:
                     if not data:
                         break
                     buffer += data
+
                     while "\n" in buffer:
                         line, buffer = buffer.split("\n", 1)
                         try:
                             msg = json.loads(line)
-                            self.handle_message(msg)
+                            if self.request_mode:
+                                if msg["type"] == "chain":
+                                    self.handle_message(msg)
+                            else:
+                                self.handle_message(msg)
                         except json.JSONDecodeError as e:
                             print(f"[receive_from_peer] JSON decode error: {e}")
             except Exception as e:
@@ -140,7 +148,13 @@ class Peer:
         """
         Handle a chain received from another peer
         """
-        self.peers_chains[peer] = chain
+        with self.lock:
+            self.peers_chains[peer] = chain
+            self.requests += 1
+            if self.requests == self.requests_needed:
+                self.request_mode = False
+                self.requests = 0
+                self.requests_needed = 0
 
     def handle_block(self, block):
         """
@@ -153,15 +167,18 @@ class Peer:
                 self.chain.add_block(block)
                 print(f"[handle_block] Block {block.hash} added to chain")
             else:
-                for i in reversed(range(len(self.chain.chain))):
-                    if self.chain.chain[i].hash == block.prev_hash:
-                        candidate_chain = self.chain.chain[:i+1] + [block]
-                        if len(candidate_chain) > len(self.chain.chain):
-                            print("[handle_block] Longer fork found — replacing current chain.")
-                            self.chain.chain = candidate_chain
-                        else:
-                            print("[handle_block] Received block is part of a shorter fork. Ignored.")
-                        return
+                self.request_chains()
+                _, longest_chain = max(self.peers_chains.items(), key=lambda item: len(item[1].chain))
+                self.chain.chain = longest_chain
+                # for i in reversed(range(len(self.chain.chain))):
+                #     if self.chain.chain[i].hash == block.prev_hash:
+                #         candidate_chain = self.chain.chain[:i+1] + [block]
+                #         if len(candidate_chain) > len(self.chain.chain):
+                #             print("[handle_block] Longer fork found — replacing current chain.")
+                #             self.chain.chain = candidate_chain
+                #         else:
+                #             print("[handle_block] Received block is part of a shorter fork. Ignored.")
+                #         return
 
                 print("[handle_block] Received block does not connect to known chain. Ignored.")
 
@@ -192,9 +209,9 @@ class Peer:
                     del self.peers[peer_id]
     
     def request_chains(self):
-        """
-        Sends a chain request message to all connected peers.
-        """
+        with self.lock:
+            self.request_mode = True
+            self.requests_needed = len(self.peers)
         for peer_id, conn in self.peers.items():
             msg = {
                 "type": "request",
