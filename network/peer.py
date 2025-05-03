@@ -18,6 +18,7 @@ class Peer:
         self.wallet = Wallet(name=name)
         self.chain = Chain()
         self.socket_to_tracker = None
+        self.lock = threading.Lock()
 
     def connect_to_tracker(self):
         """
@@ -34,9 +35,7 @@ class Peer:
             Get the list of peers from the tracker upon joining the network system.
         """
         try:
-            # For Sky: can data of peer list information be formatted like:
-            # data = '[ "192.168.1.5:5000", "192.168.1.6:5000" ]'
-            self.socket_to_tracker.sendall(b"SYN") # For Sky: this is the handshake protocol from my side
+            self.socket_to_tracker.sendall(b"SYN")
             data = self.socket_to_tracker.recv(4096).decode()
             peer_list = json.loads(data)
             return peer_list
@@ -100,8 +99,6 @@ class Peer:
                     if not data:
                         break
                     buffer += data
-                    # TODO: actually handle the data received
-                    # Should do so by calling handle_message() after parsing the buffer using a delimiter set by message protocol
                     while "\n" in buffer:
                         line, buffer = buffer.split("\n", 1)
                         try:
@@ -182,7 +179,7 @@ class Peer:
         Broadcast a message to all peers in the network.
         This message may be a new transaction or a new block mined.
         """
-        msg_str = json.dumps(msg) + "\n" # TODO: placeholder, need to evaluate message protocol between nodes
+        msg_str = json.dumps(msg) + "\n"
 
         for peer_id, conn in self.peers.items():
             try:
@@ -195,6 +192,9 @@ class Peer:
                     del self.peers[peer_id]
     
     def request_chains(self):
+        """
+        Sends a chain request message to all connected peers.
+        """
         for peer_id, conn in self.peers.items():
             msg = {
                 "type": "request",
@@ -211,6 +211,9 @@ class Peer:
                     del self.peers[peer_id]
         
     def send_chain(self, requester):
+        """
+        Sends this peer's current blockchain to a requesting peer.
+        """
         pickled_chain = pickle.dumps(self.chain)
         # Encode the bytes into a JSON-safe string
         encoded_chain = base64.b64encode(pickled_chain).decode('utf-8')
@@ -220,8 +223,11 @@ class Peer:
             "data": encoded_chain
         }
         msg_str = json.dumps(msg) + "\n"
-        conn = self.peers[requester]
-        conn.sendall(msg_str)
+        if requester in self.peers:
+            conn = self.peers[requester]
+            conn.sendall(msg_str)
+        else:
+            print(f"[send_chain] Peer {requester} not found in peers list.")
 
     def transfer(self, receiver_public_key: str, amount: float):
         """
@@ -238,7 +244,6 @@ class Peer:
                 pickled_transaction = pickle.dumps(transaction)
                 # Encode the bytes into a JSON-safe string
                 encoded_transaction = base64.b64encode(pickled_transaction).decode('utf-8')
-                # TODO: tentative, need to define message protocol between nodes
                 message = {
                     "type": "transaction",
                     "data": encoded_transaction
@@ -257,7 +262,6 @@ class Peer:
         Need to call chain.mine_block(), chain.add_block(), and need to broadcast the block to peers.
         Need to handle the case where a block is received from another peer, since it mined it first. 
         """
-        # block = self.chain.mine_block(self.wallet)
         with self.lock:
             latest_hash_before = self.chain.chain[-1].hash
             block = self.chain.mine_block(self.wallet)
@@ -274,7 +278,6 @@ class Peer:
                 "data": encoded_block
             }
             self.broadcast(message)
-        # TODO: Need to handle the case where a block is received from another peer, since it mined it first.
 
     def start(self):
         self.connect_to_tracker()
@@ -285,6 +288,3 @@ class Peer:
         while True:
             self.mine_block()
             time.sleep(5)
-
-
-        
