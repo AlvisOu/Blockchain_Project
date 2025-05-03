@@ -1,6 +1,6 @@
 import threading
 import time
-from peer import Peer
+from network import Peer
 
 def run_peer(port, name, tracker_host, tracker_port):
     peer = Peer(port=port, name=name, tracker_addr=tracker_host, tracker_port=tracker_port)

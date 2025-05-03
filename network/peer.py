@@ -3,8 +3,6 @@ from blockchain import Chain, Wallet, Transaction, Block
 import pickle
 import base64
 
-# TODO: blockchain specific functions (stubbed out with pass), node-to-node message protocol (commented with TODO), thread locks where needed
-
 class Peer:
     """
         Peer class that functions as each node in the network.
