@@ -1,5 +1,7 @@
 import socket, json, time, threading
 from blockchain import Chain, Wallet, Transaction, Block
+import pickle
+import base64
 
 # TODO: blockchain specific functions (stubbed out with pass), node-to-node message protocol (commented with TODO), thread locks where needed
 
@@ -12,9 +14,14 @@ class Peer:
         self.tracker_port = tracker_port
         self.port = port
         self.peers = {} # {"addre:port" as one peer_id string : socket}
+        self.peers_chains = {}
         self.wallet = Wallet(name=name)
         self.chain = Chain()
         self.socket_to_tracker = None
+        self.request_mode = False
+        self.requests = 0
+        self.requests_needed = 0
+        self.lock = threading.Lock()
 
     def connect_to_tracker(self):
         """
@@ -31,9 +38,7 @@ class Peer:
             Get the list of peers from the tracker upon joining the network system.
         """
         try:
-            # For Sky: can data of peer list information be formatted like:
-            # data = '[ "192.168.1.5:5000", "192.168.1.6:5000" ]'
-            self.socket_to_tracker.sendall(b"SYN") # For Sky: this is the handshake protocol from my side
+            self.socket_to_tracker.sendall(b"SYN")
             data = self.socket_to_tracker.recv(4096).decode()
             peer_list = json.loads(data)
             return peer_list
@@ -61,7 +66,7 @@ class Peer:
                     sock = socket.create_connection((ip, int(port)))
                     peer_id = f"{ip}:{port}"
                     self.peers[peer_id] = sock
-                    print(f"[form_peer_connections] connected to{peer}")
+                    print(f"[form_peer_connections] connected to {peer}")
                     threading.Thread(target=self.receive_from_peer, args=(sock, peer_id), daemon=True).start()
                 except Exception as e:
                     print(f"[refresh_peer_connections] connection error: {e}")
@@ -97,21 +102,59 @@ class Peer:
                     if not data:
                         break
                     buffer += data
-                    # TODO: actually handle the data received
-                    # Should do so by calling handle_message() after parsing the buffer using a delimiter set by message protocol
+
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        try:
+                            msg = json.loads(line)
+                            if self.request_mode:
+                                if msg["type"] == "chain":
+                                    self.handle_message(msg)
+                            else:
+                                self.handle_message(msg)
+                        except json.JSONDecodeError as e:
+                            print(f"[receive_from_peer] JSON decode error: {e}")
             except Exception as e:
                 print(f"[receive_from_peer] error: {e}")
             finally:
                 # we need this "if" check since the broadcast thread may have deleted that already
-                if peer_id in self.peers:
-                    del self.peers[peer_id]
+                with self.lock:
+                    if peer_id in self.peers:
+                        del self.peers[peer_id]
     
     def handle_message(self, msg):
         """
         Handle the message received from peers.
         Calls handle_block() or handle_transaction() depending on the type of message, as set by the message protocol.
         """
-        pass
+        if msg["type"] == "transaction":
+            tx_bytes = base64.b64decode(msg["data"])
+            tx = pickle.loads(tx_bytes)
+            self.handle_transaction(tx)
+        elif msg["type"] == "block":
+            block_bytes = base64.b64decode(msg["data"])
+            block = pickle.loads(block_bytes)
+            self.handle_block(block)
+        elif msg["type"] == "chain":
+            chain_bytes = base64.b64decode(msg["data"])
+            chain = pickle.loads(chain_bytes)
+            peer = msg["sender"]
+            self.handle_chain(peer, chain)
+        elif msg["type"] == "request":
+            requester = msg["requester"]
+            self.send_chain(requester)
+
+    def handle_chain(self, peer, chain):
+        """
+        Handle a chain received from another peer
+        """
+        with self.lock:
+            self.peers_chains[peer] = chain
+            self.requests += 1
+            if self.requests == self.requests_needed:
+                self.request_mode = False
+                self.requests = 0
+                self.requests_needed = 0
 
     def handle_block(self, block):
         """
@@ -119,21 +162,41 @@ class Peer:
         Need to call chain.update_balance()
         Need to handle forks
         """
-        pass
+        with self.lock:
+            if block.prev_hash == self.chain.chain[-1].hash:
+                self.chain.add_block(block)
+                print(f"[handle_block] Block {block.hash} added to chain")
+            else:
+                self.request_chains()
+                _, longest_chain = max(self.peers_chains.items(), key=lambda item: len(item[1].chain))
+                self.chain.chain = longest_chain
+                # for i in reversed(range(len(self.chain.chain))):
+                #     if self.chain.chain[i].hash == block.prev_hash:
+                #         candidate_chain = self.chain.chain[:i+1] + [block]
+                #         if len(candidate_chain) > len(self.chain.chain):
+                #             print("[handle_block] Longer fork found — replacing current chain.")
+                #             self.chain.chain = candidate_chain
+                #         else:
+                #             print("[handle_block] Received block is part of a shorter fork. Ignored.")
+                #         return
+
+                print("[handle_block] Received block does not connect to known chain. Ignored.")
 
     def handle_transaction(self, transaction):
         """
         Handle a transaction received from another peer.
         Need to call chain.recv_transaction()
         """
-        pass
+        with self.lock:
+            sign = self.wallet.sign(transaction)
+            self.chain.recv_transaction(transaction, sign)
     
     def broadcast(self, msg):
         """
         Broadcast a message to all peers in the network.
         This message may be a new transaction or a new block mined.
         """
-        msg_str = json.dumps(msg) + "\n" # TODO: placeholder, need to evaluate message protocol between nodes
+        msg_str = json.dumps(msg) + "\n"
 
         for peer_id, conn in self.peers.items():
             try:
@@ -144,29 +207,71 @@ class Peer:
                 # we need this "if" check since the listener thread may have deleted that already
                 if peer_id in self.peers:
                     del self.peers[peer_id]
+    
+    def request_chains(self):
+        with self.lock:
+            self.request_mode = True
+            self.requests_needed = len(self.peers)
+        for peer_id, conn in self.peers.items():
+            msg = {
+                "type": "request",
+                "requester": f"localhost:{self.port}"
+            }
+            msg_str = json.dumps(msg) + "\n"
+            try:
+                conn.sendall(msg_str.encode())
+            except Exception as e:
+                print(f"[broadcast] error: {e}")
+                conn.close()
+                # we need this "if" check since the listener thread may have deleted that already
+                if peer_id in self.peers:
+                    del self.peers[peer_id]
+        
+    def send_chain(self, requester):
+        """
+        Sends this peer's current blockchain to a requesting peer.
+        """
+        pickled_chain = pickle.dumps(self.chain)
+        # Encode the bytes into a JSON-safe string
+        encoded_chain = base64.b64encode(pickled_chain).decode('utf-8')
+        msg = {
+            "type": "chain",
+            "sender": f"localhost:{self.port}",
+            "data": encoded_chain
+        }
+        msg_str = json.dumps(msg) + "\n"
+        if requester in self.peers:
+            conn = self.peers[requester]
+            conn.sendall(msg_str)
+        else:
+            print(f"[send_chain] Peer {requester} not found in peers list.")
 
     def transfer(self, receiver_public_key: str, amount: float):
         """
         Creating a transaction to send money to another peer.
         Calls broadcast() to announce the transaction to all peers.
         """
-        transaction = Transaction(amount, self.wallet, receiver_public_key)
-
-        # TODO: tentative, need to define message protocol between nodes
-        message = {
-            "type": "transaction",
-            "data": transaction.to_dict()
-        }
-        self.broadcast(message)
-        self.wallet.send_money(amount, receiver_public_key, self.chain)
-        print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_public_key}")
-
-    def genesis_block(self):
-        """
-        Logic to create the genesis block, if needed.
-        """
-        pass
-
+        if self.wallet.public_key in self.chain.balances:
+            current_balance = self.chain.balances[self.wallet.public_key][1]
+            if current_balance < amount:
+                print(f"[transfer] Transfer invalid. {self.wallet.name} has insufficient funds ({current_balance} < {amount}).")
+                return False
+            else:
+                transaction = Transaction(amount, self.wallet, receiver_public_key)
+                pickled_transaction = pickle.dumps(transaction)
+                # Encode the bytes into a JSON-safe string
+                encoded_transaction = base64.b64encode(pickled_transaction).decode('utf-8')
+                message = {
+                    "type": "transaction",
+                    "data": encoded_transaction
+                }
+                self.broadcast(message)
+                self.wallet.send_money(amount, receiver_public_key, self.chain)
+                print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_public_key}")
+            return True
+        else:
+            print(f"[transfer] Transfer invalid. {self.wallet.name} not in chain.")
+            return False
 
     def mine_block(self):
         """
@@ -174,20 +279,29 @@ class Peer:
         Need to call chain.mine_block(), chain.add_block(), and need to broadcast the block to peers.
         Need to handle the case where a block is received from another peer, since it mined it first. 
         """
-        pass
+        with self.lock:
+            latest_hash_before = self.chain.chain[-1].hash
+            block = self.chain.mine_block(self.wallet)
+            if self.chain.chain[-1].hash != latest_hash_before:
+                print("[mine_block] New block already added by peer. Aborting own block.")
+                return
+        
+        if block:
+            pickled_block = pickle.dumps(block)
+            # Encode the bytes into a JSON-safe string
+            encoded_block = base64.b64encode(pickled_block).decode('utf-8')
+            message = {
+                "type": "block",
+                "data": encoded_block
+            }
+            self.broadcast(message)
 
     def start(self):
         self.connect_to_tracker()
         self.form_peer_connections()
         threading.Thread(target=self.listener_thread, daemon=True).start()
 
-        # Genesis case
-        self.genesis_block()
-
         # Collects transaction from mempool to mine a block every 5 seconds
         while True:
             self.mine_block()
             time.sleep(5)
-
-
-        
