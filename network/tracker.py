@@ -13,6 +13,7 @@ class Tracker:
         self.peer_ids = []
         self.public_keys = []
         self.lock = threading.Lock()
+        self.connections = []
 
     def start(self):
         """
@@ -46,8 +47,13 @@ class Tracker:
                 client_sock.close()
                 return
         
-            port_data = client_sock.recv(64).decode().strip()
-            public_key = client_sock.recv(512).decode().strip()
+            info = client_sock.recv(1024).decode().strip()
+            try:
+                port_data, public_key = info.split("|", 1)
+            except ValueError:
+                print(f"[Tracker] Invalid peer info format from {addr}: {info}")
+                client_sock.close()
+                return
             peer_listen_port = int(port_data)
             ip = addr[0]
             peer_id = f"{ip}:{peer_listen_port}"
@@ -55,12 +61,15 @@ class Tracker:
             with self.lock:
                 self.peer_ids.append(peer_id)
                 self.public_keys.append(public_key)
+                self.connections.append(client_sock)
             print(f"[Tracker] Peer connected: {peer_id}")
 
             with self.lock:
                 combined_list = [f"{pid}|{pk}" for pid, pk in zip(self.peer_ids, self.public_keys)]
             
             client_sock.sendall(json.dumps(combined_list).encode())
+
+            self.broadcast_public_keys()
 
             while True:
                 data = client_sock.recv(1024)
@@ -78,15 +87,25 @@ class Tracker:
                 pass
     
     def unregister_peer(self, peer_id):
-        """
-        Removes a peer from the peer list when it disconnects.
-        """
         with self.lock:
             if peer_id in self.peer_ids:
                 index = self.peer_ids.index(peer_id)
                 del self.peer_ids[index]
                 del self.public_keys[index]
+                del self.connections[index]
                 print(f"[Tracker] Peer disconnected: {peer_id}")
+            else:
+                print(f"[Tracker] Tried to unregister unknown peer: {peer_id}")
+        self.broadcast_public_keys()
+
+    def broadcast_public_keys(self):
+        with self.lock:
+            message = json.dumps(self.public_keys).encode()
+            for conn in list(self.connections):
+                try:
+                    conn.sendall(message)
+                except:
+                    self.connections.remove(conn)
 
 
 if __name__ == "__main__":
