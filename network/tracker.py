@@ -44,10 +44,11 @@ class Tracker:
                 client_sock.close()
                 return
         
+            port_data = client_sock.recv(64).decode().strip()
+            peer_listen_port = int(port_data)
             ip = addr[0]
-            port = addr[1]
+            peer_id = f"{ip}:{peer_listen_port}"
 
-            peer_id = f"{ip}:{port}"
             with self.lock:
                 self.peers.add(peer_id)
             print(f"[Tracker] Peer connected: {peer_id}")

@@ -37,6 +37,7 @@ class Peer:
         """
         try:
             self.socket_to_tracker.sendall(b"SYN")
+            self.socket_to_tracker.sendall(f"{self.port}\n".encode())
             data = self.socket_to_tracker.recv(4096).decode()
             peer_list = json.loads(data)
             return peer_list
