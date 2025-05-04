@@ -10,7 +10,8 @@ class Tracker:
     def __init__(self, host='0.0.0.0', port=8000):
         self.host = host
         self.port = port
-        self.peers = set()
+        self.peer_ids = []
+        self.public_keys = []
         self.lock = threading.Lock()
 
     def start(self):
@@ -46,17 +47,20 @@ class Tracker:
                 return
         
             port_data = client_sock.recv(64).decode().strip()
+            public_key = client_sock.recv(512).decode().strip()
             peer_listen_port = int(port_data)
             ip = addr[0]
             peer_id = f"{ip}:{peer_listen_port}"
 
             with self.lock:
-                self.peers.add(peer_id)
+                self.peer_ids.append(peer_id)
+                self.public_keys.append(public_key)
             print(f"[Tracker] Peer connected: {peer_id}")
 
-            peer_list = list(self.peers)
-            peer_list_json = json.dumps(peer_list).encode()
-            client_sock.sendall(peer_list_json)
+            with self.lock:
+                combined_list = [f"{pid}|{pk}" for pid, pk in zip(self.peer_ids, self.public_keys)]
+            
+            client_sock.sendall(json.dumps(combined_list).encode())
 
             while True:
                 data = client_sock.recv(1024)
@@ -78,11 +82,13 @@ class Tracker:
         Removes a peer from the peer list when it disconnects.
         """
         with self.lock:
-            if peer_id in self.peers:
-                self.peers.remove(peer_id)
+            if peer_id in self.peer_ids:
+                index = self.peer_ids.index(peer_id)
+                del self.peer_ids[index]
+                del self.public_keys[index]
                 print(f"[Tracker] Peer disconnected: {peer_id}")
 
-        
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Tracker for managing peers.")
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Host IP to bind to (default: 0.0.0.0)')
