@@ -93,7 +93,6 @@ class Chain:
                 break
             nonce += 1
         
-        #self.add_block(block)
         print(f"{miner.name} Block mined!")
         return block
 

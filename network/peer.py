@@ -296,30 +296,15 @@ class Peer:
         Need to call chain.mine_block() and broadcast the block to peers.
         Need to handle the case where a block is received from another peer, since it mined it first. 
         """
-        latest_hash_before = self.chain.chain[-1].hash
-        block = self.chain.mine_block(self.wallet)
-        if block == False:
-            print("[mine_block] New block already added by peer. Aborting own block.")
-            return
-        # with self.lock: # only lock when checking. Give recieve block a chance to win
-        #     if self.chain.chain[-1].hash != latest_hash_before:
-        #         print("[mine_block] New block already added by peer. Aborting own block.")
-        #         return
-
-        # with self.lock:
-        #     latest_hash_before = self.chain.chain[-1].hash
-        #     block = self.chain.mine_block(self.wallet)
-        #     # if block.prev_hash != latest_hash_before:
-        #     #     print("[mine_block] New block already added by peer. Aborting own block.")
-        #     #     return
-        #     print("self.chain.chain[-1].hash: " + self.chain.chain[-1].hash)
-        #     print("latest_hash_before: " + latest_hash_before)
-        #     if self.chain.chain[-1].hash != latest_hash_before:
-        #         print("[mine_block] New block already added by peer. Aborting own block.")
-        #         return
+        with self.lock:
+            block = self.chain.mine_block(self.wallet)
+            if block == False:
+                print("[mine_block] New block already added by peer. Aborting own block.")
+                return
+            if block:
+                self.chain.add_block(block)
         
         if block:
-            self.chain.add_block(block)
             pickled_block = pickle.dumps(block)
             # Encode the bytes into a JSON-safe string
             encoded_block = base64.b64encode(pickled_block).decode('utf-8')
