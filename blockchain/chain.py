@@ -94,6 +94,7 @@ class Chain:
             nonce += 1
         
         #self.add_block(block)
+        print(f"{miner.name} Block mined!")
         return block
 
     def add_block(self, block: Block):
@@ -107,8 +108,8 @@ class Chain:
 
         # keep transactions that were not in the block
         self.mempool = [(tx, sign) for (tx, sign) in self.mempool if tx not in block.transactions]
-        print("Block mined and added to chain.")
-    
+        print("Block added.")
+
     def update_balances(self, transaction: Transaction):
         """
             Updates the balance dictionary for affected Wallets.

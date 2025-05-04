@@ -1,6 +1,3 @@
-from network import Peer
-
-
 import threading
 import time
 from network import Peer
@@ -23,14 +20,20 @@ if __name__ == "__main__":
     tracker_port = 8000
 
     peer1 = run_peer(5001, "Sunny", tracker_host, tracker_port)
+    print(f"peer1's peers:{peer1.peers}")
     time.sleep(3)
     peer2 = run_peer(5002, "Alvis", tracker_host, tracker_port)
+    print(f"peer2's peers:{peer2.peers}")
     time.sleep(3)
     peer3 = run_peer(5003, "Sky", tracker_host, tracker_port)
+    print(f"peer3's peers:{peer3.peers}")
 
     time.sleep(5)
     peers = [("Sunny", peer1), ("Alvis", peer2), ("Sky", peer3)]
-
+    print("Checking peer lists")
+    print(peer1.peers)
+    print(peer2.peers)
+    print(peer3.peers)
 
     print("=== Starting Transactions ===")
     peer1.transfer(receiver_public_key=peer2.wallet.public_key, amount=5.0) # Sunny -> Alvis
