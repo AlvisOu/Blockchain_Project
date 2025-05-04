@@ -1,6 +1,6 @@
 import threading
 import time
-from peer import Peer
+from network import Peer
 
 def run_peer(port, name, tracker_host, tracker_port):
     peer = Peer(port=port, name=name, tracker_addr=tracker_host, tracker_port=tracker_port)
@@ -13,7 +13,9 @@ if __name__ == "__main__":
     tracker_port = 8000
 
     peer1 = run_peer(5001, "Sunny", tracker_host, tracker_port)
+    time.sleep(3)
     peer2 = run_peer(5002, "Alvis", tracker_host, tracker_port)
+    time.sleep(3)
     peer3 = run_peer(5003, "Sky", tracker_host, tracker_port)
 
     time.sleep(5)

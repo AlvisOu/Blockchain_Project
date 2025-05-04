@@ -10,8 +10,10 @@ class Tracker:
     def __init__(self, host='0.0.0.0', port=8000):
         self.host = host
         self.port = port
-        self.peers = set()
+        self.peer_ids = []
+        self.public_keys = []
         self.lock = threading.Lock()
+        self.connections = []
 
     def start(self):
         """
@@ -37,6 +39,7 @@ class Tracker:
         Expects a 3-byte 'SYN' handshake, sends back the peer list,
         and monitors for connection closure.
         """
+        peer_id = None
         try:
             syn = client_sock.recv(3)
             if syn != b"SYN":
@@ -44,17 +47,26 @@ class Tracker:
                 client_sock.close()
                 return
         
+            info = client_sock.recv(1024).decode().strip()
+            try:
+                port_data, public_key = info.split("|", 1)
+            except ValueError:
+                print(f"[Tracker] Invalid peer info format from {addr}: {info}")
+                client_sock.close()
+                return
+            peer_listen_port = int(port_data)
             ip = addr[0]
-            port = addr[1]
+            peer_id = f"{ip}:{peer_listen_port}"
 
-            peer_id = f"{ip}:{port}"
             with self.lock:
-                self.peers.add(peer_id)
+                self.peer_ids.append(peer_id)
+                self.public_keys.append(public_key)
+                self.connections.append(client_sock)
             print(f"[Tracker] Peer connected: {peer_id}")
+            
+            client_sock.sendall(json.dumps(self.peer_ids).encode())
 
-            peer_list = list(self.peers)
-            peer_list_json = json.dumps(peer_list).encode()
-            client_sock.sendall(peer_list_json)
+            self.broadcast_public_keys()
 
             while True:
                 data = client_sock.recv(1024)
@@ -65,26 +77,34 @@ class Tracker:
             print(f"[Tracker] Error handling peer: {e}")
 
         finally:
-            self.unregister_peer(addr)
+            self.unregister_peer(peer_id)
             try:
                 client_sock.close()
             except:
                 pass
     
-    def unregister_peer(self, addr):
-        """
-        Removes a peer from the peer list when it disconnects.
-        """
-        ip = addr[0]
-        port = addr[1]
-        peer_id = f"{ip}:{port}"
-
+    def unregister_peer(self, peer_id):
         with self.lock:
-            if peer_id in self.peers:
-                self.peers.remove(peer_id)
+            if peer_id in self.peer_ids:
+                index = self.peer_ids.index(peer_id)
+                del self.peer_ids[index]
+                del self.public_keys[index]
+                del self.connections[index]
                 print(f"[Tracker] Peer disconnected: {peer_id}")
+            else:
+                print(f"[Tracker] Tried to unregister unknown peer: {peer_id}")
+        self.broadcast_public_keys()
 
-        
+    def broadcast_public_keys(self):
+        with self.lock:
+            message = json.dumps(self.public_keys).encode()
+            for conn in list(self.connections):
+                try:
+                    conn.sendall(message)
+                except:
+                    self.connections.remove(conn)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Tracker for managing peers.")
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Host IP to bind to (default: 0.0.0.0)')

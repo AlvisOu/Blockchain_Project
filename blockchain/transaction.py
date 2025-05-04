@@ -38,4 +38,4 @@ class Transaction:
             Converts the transaction into a string which is used for signing
             the block.
         """
-        return f"{self.amount}:{self.payer.public_key}->{self.payee.public_key}:{self.timestamp}"
+        return f"{self.amount}:{self.payer.public_key}->{self.payee_public_key}:{self.timestamp}"
