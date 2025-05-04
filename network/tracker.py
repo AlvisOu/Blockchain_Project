@@ -14,6 +14,7 @@ class Tracker:
         self.public_keys = []
         self.lock = threading.Lock()
         self.connections = []
+        self.names = []
 
     def start(self):
         """
@@ -49,7 +50,7 @@ class Tracker:
         
             info = client_sock.recv(1024).decode().strip()
             try:
-                port_data, public_key = info.split("|", 1)
+                port_data, public_key, name = info.split("|", 2)
             except ValueError:
                 print(f"[Tracker] Invalid peer info format from {addr}: {info}")
                 client_sock.close()
@@ -62,11 +63,12 @@ class Tracker:
                 self.peer_ids.append(peer_id)
                 self.public_keys.append(public_key)
                 self.connections.append(client_sock)
+                self.names.append(name)
             print(f"[Tracker] Peer connected: {peer_id}")
             
             client_sock.sendall(json.dumps(self.peer_ids).encode())
 
-            self.broadcast_public_keys()
+            self.broadcast_public_keys_and_names()
 
             while True:
                 data = client_sock.recv(1024)
@@ -84,23 +86,32 @@ class Tracker:
                 pass
     
     def unregister_peer(self, peer_id):
+        """
+        Removes a peer from all tracking lists when the peer disconnects.
+        """
         with self.lock:
             if peer_id in self.peer_ids:
                 index = self.peer_ids.index(peer_id)
                 del self.peer_ids[index]
                 del self.public_keys[index]
+                del self.names[index]
                 del self.connections[index]
                 print(f"[Tracker] Peer disconnected: {peer_id}")
             else:
                 print(f"[Tracker] Tried to unregister unknown peer: {peer_id}")
-        self.broadcast_public_keys()
+        self.broadcast_public_keys_and_names()
 
-    def broadcast_public_keys(self):
+    def broadcast_public_keys_and_names(self):
+        """
+        Broadcasts the current list of public keys and names to all connected peers.
+        """
         with self.lock:
-            message = json.dumps(self.public_keys).encode()
+            public_keys_str = json.dumps(self.public_keys)
+            names_str = json.dumps(self.names)
+            combined = f"{public_keys_str}|{names_str}\n".encode()
             for conn in list(self.connections):
                 try:
-                    conn.sendall(message)
+                    conn.sendall(combined)
                 except:
                     self.connections.remove(conn)
 
