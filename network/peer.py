@@ -28,9 +28,9 @@ class Peer:
         """
         try:
             self.socket_to_tracker = socket.create_connection((self.tracker_addr, self.tracker_port)) # create_connection is more robust than socket.connect then socket.bind
-            print(f"[connect_to_tracker] tracker connected at {self.tracker_addr}:{self.tracker_port}")
+            print(f"[connect_to_tracker] {self.port} connected to tracker at {self.tracker_addr}:{self.tracker_port}")
         except Exception as e:
-            print(f"[connect_to_tracker] error: {e}")
+            print(f"[connect_to_tracker] {self.port} error: {e}")
 
     def get_peer_list(self):
         """
@@ -57,7 +57,7 @@ class Peer:
         """
         peers = self.get_peer_list()
         for peer in peers:
-            if peer == f"localhost:{self.port}":
+            if peer == f"127.0.0.1:{self.port}":
                 continue # Don't connect to self
             
             if peer not in self.peers:
@@ -66,10 +66,10 @@ class Peer:
                     sock = socket.create_connection((ip, int(port)))
                     peer_id = f"{ip}:{port}"
                     self.peers[peer_id] = sock
-                    print(f"[form_peer_connections] connected to {peer}")
+                    print(f"[form_peer_connections] {self.port} connected to {peer}")
                     threading.Thread(target=self.receive_from_peer, args=(sock, peer_id), daemon=True).start()
                 except Exception as e:
-                    print(f"[refresh_peer_connections] connection error: {e}")
+                    print(f"[refresh_peer_connections] {self.port} connection error when connecting to {peer}: {e}")
             
         self.last_refresh = time.time()
 
@@ -81,10 +81,11 @@ class Peer:
         listenr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listenr.bind(("localhost", self.port))
         listenr.listen()
-        print(f"[listener_thread] listening for {self.port}")
+        print(f"[listener_thread] {self.port} is listening")
 
         while True:
             conn, addr = listenr.accept()
+            print(f"[listener_thread] {self.port} accepted connection from {addr}")
             peer_id = f"{addr[0]}:{addr[1]}"
             self.peers[peer_id] = conn
             threading.Thread(target=self.receive_from_peer, args=(conn, peer_id), daemon=True).start()
@@ -108,7 +109,7 @@ class Peer:
                     if public_key not in updated_public_keys:
                     # if public_key not in updated_public_keys and public_key != "0x1" and public_key != "0x0":
                         del self.chain.balances[public_key]
-                print("[tracker_thread] Successfully updated public keys")
+                print(f"[tracker_thread] {self.port} successfully received updated public keys")
 
     def receive_from_peer(self, conn, peer_id):
         """
@@ -148,6 +149,7 @@ class Peer:
         Handle the message received from peers.
         Calls handle_block() or handle_transaction() depending on the type of message, as set by the message protocol.
         """
+        print(self.wallet.name + " received a message of type " + msg["type"])
         if msg["type"] == "transaction":
             tx_bytes = base64.b64decode(msg["data"])
             tx = pickle.loads(tx_bytes)
@@ -164,12 +166,14 @@ class Peer:
             self.handle_chain(peer, chain)
         elif msg["type"] == "request":
             requester = msg["requester"]
+            print(type(chain))
             self.send_chain(requester)
 
     def handle_chain(self, chain):
         """
         Handle a chain received from another peer
         """
+        print(f"[handle_chain] {self.wallet.name} received a chain")
         with self.lock:
             if len(chain.chain) > self.longest_chain_length:
                 self.longest_chain = chain
@@ -189,8 +193,9 @@ class Peer:
         with self.lock:
             if block.prev_hash == self.chain.chain[-1].hash:
                 self.chain.add_block(block)
-                print(f"[handle_block] Block {block.hash} added to chain")
+                print(f"[handle_block] {self.wallet.name} block {block.hash[:8]} added to chain")
             else:
+                print(f"[handle_block] Fork detected!")
                 self.request_chains()
                 self.chain.chain = self.longest_chain
 
@@ -199,6 +204,7 @@ class Peer:
         Handle a transaction received from another peer.
         Need to call chain.recv_transaction()
         """
+        print(f"[handle_transaction] {self.wallet.name} received a transaction")
         with self.lock:
             self.chain.recv_transaction(transaction, sign, True)
     
@@ -243,6 +249,7 @@ class Peer:
         """
         Sends this peer's current blockchain to a requesting peer.
         """
+        print(f"[send_chain] {self.wallet.name} Sending chain to {requester}")
         pickled_chain = pickle.dumps(self.chain)
         # Encode the bytes into a JSON-safe string
         encoded_chain = base64.b64encode(pickled_chain).decode('utf-8')
@@ -290,11 +297,12 @@ class Peer:
         Need to handle the case where a block is received from another peer, since it mined it first. 
         """
         with self.lock:
-            latest_hash_before = self.chain.chain[-1].hash
             block = self.chain.mine_block(self.wallet)
-            if self.chain.chain[-1].hash != latest_hash_before:
+            if block == False:
                 print("[mine_block] New block already added by peer. Aborting own block.")
                 return
+            if block:
+                self.chain.add_block(block)
         
         if block:
             pickled_block = pickle.dumps(block)
@@ -304,6 +312,7 @@ class Peer:
                 "type": "block",
                 "data": encoded_block
             }
+            print("Broadcasting block: " + block.hash[:8])
             self.broadcast(message)
 
     def start(self):
@@ -314,5 +323,5 @@ class Peer:
         
         # Collects transaction from mempool to mine a block every 5 seconds
         while True:
+            time.sleep(10)
             self.mine_block()
-            time.sleep(5)
