@@ -14,6 +14,7 @@ class Tracker:
         self.public_keys = []
         self.lock = threading.Lock()
         self.connections = []
+        self.names = []
 
     def start(self):
         """
@@ -49,7 +50,7 @@ class Tracker:
         
             info = client_sock.recv(1024).decode().strip()
             try:
-                port_data, public_key = info.split("|", 1)
+                port_data, public_key, name = info.split("|", 2)
             except ValueError:
                 print(f"[Tracker] Invalid peer info format from {addr}: {info}")
                 client_sock.close()
@@ -62,11 +63,13 @@ class Tracker:
                 self.peer_ids.append(peer_id)
                 self.public_keys.append(public_key)
                 self.connections.append(client_sock)
+                self.names.append(name)
             print(f"[Tracker] Peer connected: {peer_id}")
             
             client_sock.sendall(json.dumps(self.peer_ids).encode())
 
             self.broadcast_public_keys()
+            self.broadcast_names()
 
             while True:
                 data = client_sock.recv(1024)
@@ -89,11 +92,22 @@ class Tracker:
                 index = self.peer_ids.index(peer_id)
                 del self.peer_ids[index]
                 del self.public_keys[index]
+                del self.names[index]
                 del self.connections[index]
                 print(f"[Tracker] Peer disconnected: {peer_id}")
             else:
                 print(f"[Tracker] Tried to unregister unknown peer: {peer_id}")
         self.broadcast_public_keys()
+        self.broadcast_names()
+
+    def broadcast_names(self):
+        with self.lock:
+            message = json.dumps(self.names).encode()
+            for conn in list(self.connections):
+                try:
+                    conn.sendall(message)
+                except:
+                    self.connections.remove(conn)
 
     def broadcast_public_keys(self):
         with self.lock:
