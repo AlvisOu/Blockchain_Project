@@ -55,21 +55,25 @@ class Chain:
             Put transaction into mempool if it is valid.
         """
         if not verify(transaction.to_sign(), sign, transaction.payer.public_key):
-            print("Invalid signature, transaction rejected.")
-            return False
+            status = "Invalid signature, transaction rejected."
+            print(status)
+            return False, status
         
         if (transaction.payer != "coinbase" and 
             (self.get_effective_balance(transaction.payer) < transaction.amount)):
-            print("Not enough money, transaction rejected.")
-            return False
+            status = "Not enough money, transaction rejected."
+            print(status)
+            return False, status
         
         if (transaction.payee_public_key == '0x0'):
-            print("Cannot give money to coinbase, transaction rejected.")
-            return False
+            status = "Cannot give money to coinbase, transaction rejected."
+            print(status)
+            return False, status
         
         self.mempool.append((transaction, sign))
-        print("Transaction added to mempool")
-        return True
+        status = "Transaction added to mempool"
+        print(status)
+        return True, status
 
     def mine_block(self, miner: Wallet):
         """

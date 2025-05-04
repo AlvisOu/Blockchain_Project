@@ -263,26 +263,21 @@ class Peer:
         Creating a transaction to send money to another peer.
         Calls broadcast() to announce the transaction to all peers.
         """
-        if self.wallet.public_key in self.chain.balances:
-            current_balance = self.chain.balances[self.wallet.public_key][1]
-            if current_balance < amount:
-                print(f"[transfer] Transfer invalid. {self.wallet.name} has insufficient funds ({current_balance} < {amount}).")
-                return False
-            else:
-                transaction = Transaction(amount, self.wallet, receiver_public_key)
-                pickled_transaction = pickle.dumps(transaction)
-                # Encode the bytes into a JSON-safe string
-                encoded_transaction = base64.b64encode(pickled_transaction).decode('utf-8')
-                message = {
-                    "type": "transaction",
-                    "data": encoded_transaction
-                }
-                self.broadcast(message)
-                self.wallet.send_money(amount, receiver_public_key, self.chain)
-                print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_public_key}")
+        transaction = Transaction(amount, self.wallet, receiver_public_key)
+        pickled_transaction = pickle.dumps(transaction)
+        # Encode the bytes into a JSON-safe string
+        encoded_transaction = base64.b64encode(pickled_transaction).decode('utf-8')
+        message = {
+            "type": "transaction",
+            "data": encoded_transaction
+        }
+        success, status = self.wallet.send_money(amount, receiver_public_key, self.chain)
+        if success:
+            self.broadcast(message)
+            print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_public_key}")
             return True
         else:
-            print(f"[transfer] Transfer invalid. {self.wallet.name} not in chain.")
+            print(f"[transfer] error: {status}")
             return False
 
     def mine_block(self):
