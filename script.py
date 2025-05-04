@@ -13,7 +13,9 @@ if __name__ == "__main__":
     tracker_port = 8000
 
     peer1 = run_peer(5001, "Sunny", tracker_host, tracker_port)
+    time.sleep(3)
     peer2 = run_peer(5002, "Alvis", tracker_host, tracker_port)
+    time.sleep(3)
     peer3 = run_peer(5003, "Sky", tracker_host, tracker_port)
 
     time.sleep(5)
