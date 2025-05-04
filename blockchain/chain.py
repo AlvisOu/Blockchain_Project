@@ -45,7 +45,7 @@ class Chain:
     def create_first_block(self):
         first_wallet_public_key = '0x1'
         initial_tx = Transaction(100, self.coinbase, first_wallet_public_key)
-        return Block("0" * 64, [initial_tx]), first_wallet_public_key
+        return Block("0" * 64, [initial_tx], genesis=True), first_wallet_public_key
     
     def recv_transaction(self, transaction: Transaction, sign: str, receiving: bool):
         """

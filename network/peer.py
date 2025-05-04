@@ -166,12 +166,14 @@ class Peer:
             self.handle_chain(peer, chain)
         elif msg["type"] == "request":
             requester = msg["requester"]
+            print(type(chain))
             self.send_chain(requester)
 
     def handle_chain(self, chain):
         """
         Handle a chain received from another peer
         """
+        print(f"[handle_chain] {self.wallet.name} received a chain")
         with self.lock:
             if len(chain.chain) > self.longest_chain_length:
                 self.longest_chain = chain
@@ -191,10 +193,10 @@ class Peer:
         with self.lock:
             if block.prev_hash == self.chain.chain[-1].hash:
                 self.chain.add_block(block)
-                print(f"[handle_block] Block {block.hash[:8]} added to chain")
+                print(f"[handle_block] {self.wallet.name} block {block.hash[:8]} added to chain")
             else:
                 print(f"[handle_block] Fork detected!")
-                self.request_chains() # Why are we requesting chains here???
+                self.request_chains()
                 self.chain.chain = self.longest_chain
 
     def handle_transaction(self, transaction, sign):
@@ -202,6 +204,7 @@ class Peer:
         Handle a transaction received from another peer.
         Need to call chain.recv_transaction()
         """
+        print(f"[handle_transaction] {self.wallet.name} received a transaction")
         with self.lock:
             self.chain.recv_transaction(transaction, sign, True)
     
@@ -246,7 +249,7 @@ class Peer:
         """
         Sends this peer's current blockchain to a requesting peer.
         """
-        print(f"[send_chain] Sending chain to {requester}")
+        print(f"[send_chain] {self.wallet.name} Sending chain to {requester}")
         pickled_chain = pickle.dumps(self.chain)
         # Encode the bytes into a JSON-safe string
         encoded_chain = base64.b64encode(pickled_chain).decode('utf-8')
@@ -335,5 +338,5 @@ class Peer:
         
         # Collects transaction from mempool to mine a block every 5 seconds
         while True:
+            time.sleep(10)
             self.mine_block()
-            time.sleep(5)
