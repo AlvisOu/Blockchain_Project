@@ -37,6 +37,7 @@ class Tracker:
         Expects a 3-byte 'SYN' handshake, sends back the peer list,
         and monitors for connection closure.
         """
+        peer_id = None
         try:
             syn = client_sock.recv(3)
             if syn != b"SYN":
@@ -66,20 +67,16 @@ class Tracker:
             print(f"[Tracker] Error handling peer: {e}")
 
         finally:
-            self.unregister_peer(addr)
+            self.unregister_peer(peer_id)
             try:
                 client_sock.close()
             except:
                 pass
     
-    def unregister_peer(self, addr):
+    def unregister_peer(self, peer_id):
         """
         Removes a peer from the peer list when it disconnects.
         """
-        ip = addr[0]
-        port = addr[1]
-        peer_id = f"{ip}:{port}"
-
         with self.lock:
             if peer_id in self.peers:
                 self.peers.remove(peer_id)
