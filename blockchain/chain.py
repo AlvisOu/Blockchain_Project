@@ -65,7 +65,7 @@ class Chain:
             print(status)
             return False, status
         
-        if (transaction.payee_public_key == '0x0'):
+        if (transaction.payee_public_key == '0x0') and not receiving:
             status = "Cannot give money to coinbase, transaction rejected."
             print(status)
             return False, status

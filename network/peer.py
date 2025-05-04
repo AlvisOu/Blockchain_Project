@@ -101,7 +101,8 @@ class Peer:
                         self.chain.balances[public_key] = 0
 
                 for public_key in current_public_keys:
-                    if public_key not in updated_public_keys and public_key != "0x1":
+                    if public_key not in updated_public_keys:
+                    # if public_key not in updated_public_keys and public_key != "0x1" and public_key != "0x0":
                         del self.chain.balances[public_key]
                 print("[tracker_thread] Successfully updated public keys")
 
@@ -188,15 +189,6 @@ class Peer:
             else:
                 self.request_chains()
                 self.chain.chain = self.longest_chain
-                # for i in reversed(range(len(self.chain.chain))):
-                #     if self.chain.chain[i].hash == block.prev_hash:
-                #         candidate_chain = self.chain.chain[:i+1] + [block]
-                #         if len(candidate_chain) > len(self.chain.chain):
-                #             print("[handle_block] Longer fork found — replacing current chain.")
-                #             self.chain.chain = candidate_chain
-                #         else:
-                #             print("[handle_block] Received block is part of a shorter fork. Ignored.")
-                #         return
 
                 print("[handle_block] Received block does not connect to known chain. Ignored.")
 
@@ -290,7 +282,7 @@ class Peer:
     def mine_block(self):
         """
         Mine a block using the transactions in the mempool.
-        Need to call chain.mine_block(), chain.add_block(), and need to broadcast the block to peers.
+        Need to call chain.mine_block() and broadcast the block to peers.
         Need to handle the case where a block is received from another peer, since it mined it first. 
         """
         with self.lock:
