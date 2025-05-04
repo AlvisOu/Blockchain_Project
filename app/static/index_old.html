@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Simple Blockchain Wallet</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        max-width: 600px;
+        margin: 40px auto;
+      }
+      h2 {
+        margin-top: 0;
+      }
+      button {
+        padding: 6px 14px;
+        margin: 6px 0;
+        cursor: pointer;
+      }
+      input {
+        padding: 6px;
+        margin-right: 6px;
+      }
+      pre#out {
+        background: #f7f7f7;
+        border: 1px solid #ccc;
+        padding: 10px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Mcdonalds Collectables Exchange</h2>
+
+    <label
+      >Username:
+      <input id="user" placeholder="your name" />
+      <button id="setUserBtn">Set</button>
+      <span id="userSetMsg" style="color: green; margin-left: 10px"></span>
+    </label>
+    <br /><br />
+
+    <button id="listBtn">List Users</button>
+    <button id="balBtn">Balance</button>
+
+    <h3>Send Collectables!</h3>
+    <input id="to" placeholder="recipient" />
+    <input id="amt" type="number" min="1" placeholder="amount" />
+    <button id="sendBtn">Send</button>
+
+    <h3>Output</h3>
+    <pre id="out"></pre>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let userSet = false;
+
+      $("setUserBtn").onclick = () => {
+        const u = $("user").value.trim();
+        if (!u) return alert("Enter a username first");
+        if (userSet) return;
+
+        userSet = true;
+        $("user").disabled = true;
+        $("setUserBtn").disabled = true;
+        $("userSetMsg").textContent = `Username set: ${u}`;
+      };
+      const show = (json) => {
+        $("out").textContent = JSON.stringify(json, null, 2);
+      };
+
+      $("listBtn").onclick = () =>
+        fetch("/api/list")
+          .then((r) => r.json())
+          .then(show);
+
+      $("balBtn").onclick = () => {
+        const u = $("user").value.trim();
+        if (!u) return alert("Enter username first");
+        fetch(`/api/balance/${encodeURIComponent(u)}`)
+          .then((r) => r.json())
+          .then(show);
+      };
+
+      $("sendBtn").onclick = () => {
+        const sender = $("user").value.trim();
+        const recipient = $("to").value.trim();
+        const amount = parseInt($("amt").value, 10);
+        if (!sender || !recipient || !amount)
+          return alert("Fill sender, recipient, and amount");
+        fetch("/api/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sender, recipient, amount }),
+        })
+          .then((r) => r.json())
+          .then(show);
+      };
+    </script>
+  </body>
+</html>
