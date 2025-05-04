@@ -101,8 +101,7 @@ class Peer:
                         self.chain.balances[public_key] = 0
 
                 for public_key in current_public_keys:
-                    if public_key not in updated_public_keys:
-                    # if public_key not in updated_public_keys and public_key != "0x1" and public_key != "0x0":
+                    if public_key not in updated_public_keys and public_key != "0x1" and public_key != "0x0":
                         del self.chain.balances[public_key]
                 print("[tracker_thread] Successfully updated public keys")
 
@@ -300,6 +299,24 @@ class Peer:
                 "data": encoded_block
             }
             self.broadcast(message)
+
+    def list_users(self):
+        """
+        List the public keys of all other users in the network.
+        """
+        res = []
+        with self.lock:
+            for public_key in self.chain.balances.keys():
+                if public_key != self.wallet.public_key and public_key != "0x1" and public_key != "0x0":
+                    res.append(public_key)
+        return res
+    
+    def get_balance(self):
+        """
+        Get the balance of this peer's wallet.
+        """
+        with self.lock:
+            return self.chain.get_effective_balance(self.wallet.public_key)
 
     def start(self):
         self.connect_to_tracker()
