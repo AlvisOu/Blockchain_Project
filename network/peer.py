@@ -12,13 +12,13 @@ class Peer:
         self.tracker_port = tracker_port
         self.port = port
         self.peers = {} # {"addre:port" as one peer_id string : socket}
-        self.peers_chains = {}
         self.wallet = Wallet(name=name)
         self.chain = Chain()
         self.socket_to_tracker = None
+        self.longest_chain = None
         self.request_mode = False
         self.requests = 0
-        self.requests_needed = 0
+        self.longest_chain_length = 0
         self.lock = threading.Lock()
 
     def connect_to_tracker(self):
@@ -37,7 +37,7 @@ class Peer:
         """
         try:
             self.socket_to_tracker.sendall(b"SYN")
-            self.socket_to_tracker.sendall(f"{self.port}\n".encode())
+            self.socket_to_tracker.sendall(f"{self.port}|{self.wallet.public_key}\n".encode())
             data = self.socket_to_tracker.recv(4096).decode()
             peer_list = json.loads(data)
             return peer_list
@@ -87,6 +87,18 @@ class Peer:
             peer_id = f"{addr[0]}:{addr[1]}"
             self.peers[peer_id] = conn
             threading.Thread(target=self.receive_from_peer, args=(conn, peer_id), daemon=True).start()
+
+    def tracker_thread(self):
+        while True:
+            data = self.socket_to_tracker.recv(4096).decode()
+            updated_public_keys = json.loads(data)
+            for public_key in updated_public_keys:
+                if public_key not in self.chain.balances:
+                    self.chain.balances[public_key] = 0
+            for public_key in self.chain.balances:
+                if public_key not in updated_public_keys:
+                    del self.chain.balances[public_key]
+            print("[tracker_thread] Successfully updated public keys")
 
     def receive_from_peer(self, conn, peer_id):
         """
@@ -143,17 +155,19 @@ class Peer:
             requester = msg["requester"]
             self.send_chain(requester)
 
-    def handle_chain(self, peer, chain):
+    def handle_chain(self, chain):
         """
         Handle a chain received from another peer
         """
         with self.lock:
-            self.peers_chains[peer] = chain
+            if len(chain.chain) > self.longest_chain_length:
+                self.longest_chain = chain
+                self.longest_chain_length = len(chain.chain)
             self.requests += 1
-            if self.requests == self.requests_needed:
+            if self.requests == len(self.peers):
                 self.request_mode = False
                 self.requests = 0
-                self.requests_needed = 0
+                self.longest_chain_length = 0
 
     def handle_block(self, block):
         """
@@ -167,8 +181,7 @@ class Peer:
                 print(f"[handle_block] Block {block.hash} added to chain")
             else:
                 self.request_chains()
-                _, longest_chain = max(self.peers_chains.items(), key=lambda item: len(item[1].chain))
-                self.chain.chain = longest_chain
+                self.chain.chain = self.longest_chain
                 # for i in reversed(range(len(self.chain.chain))):
                 #     if self.chain.chain[i].hash == block.prev_hash:
                 #         candidate_chain = self.chain.chain[:i+1] + [block]
@@ -220,7 +233,7 @@ class Peer:
             try:
                 conn.sendall(msg_str.encode())
             except Exception as e:
-                print(f"[broadcast] error: {e}")
+                print(f"[request_chains] error: {e}")
                 conn.close()
                 # we need this "if" check since the listener thread may have deleted that already
                 if peer_id in self.peers:
@@ -299,7 +312,8 @@ class Peer:
         self.connect_to_tracker()
         self.form_peer_connections()
         threading.Thread(target=self.listener_thread, daemon=True).start()
-
+        threading.Thread(target=self.tracker_thread, daemon=True).start()
+        
         # Collects transaction from mempool to mine a block every 5 seconds
         while True:
             self.mine_block()
