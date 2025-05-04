@@ -22,9 +22,11 @@ if __name__ == "__main__":
 
     print("=== Starting Transactions ===")
     peer1.transfer(receiver_public_key=peer2.wallet.public_key, amount=5.0)
-    time.sleep(1)
+    time.sleep(10)
     peer2.transfer(receiver_public_key=peer3.wallet.public_key, amount=2.0)
-    time.sleep(1)
+    time.sleep(10)
     peer3.transfer(receiver_public_key=peer1.wallet.public_key, amount=1.0)
+
+    print(f"balances according to peer1: {peer1.chain.get_balance(peer1.wallet)}")
 
     time.sleep(15)

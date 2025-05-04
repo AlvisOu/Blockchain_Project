@@ -8,7 +8,7 @@ class Block:
         the nonce (to produce a hash with x no. of 0s), and the timestamp
         of the transaction.
     """
-    def __init__(self, prev_hash: str, transactions: list, nonce: int = 0):
+    def __init__(self, prev_hash: str, transactions: list, nonce: int = 0, genesis: bool = False):
         """
             prev_hash: hash of previous block. 64 0s for the first block
             transactions: list of transactions associated with this block
@@ -18,13 +18,18 @@ class Block:
         self.prev_hash = prev_hash
         self.transactions = transactions
         self.nonce = nonce
-        self.timestamp = time.time()
+        self.timestamp = 0 if genesis else time.time()
+        if genesis:
+            print(f"Gensis block has a hash of {self.hash}")
 
     @property
     def hash(self):
         """
             hash() combines all of the block's data and returns the hash based on it.
         """
+        if self.timestamp == 0:
+            return "0" * 63 + "1" # genesis block hash
+    
         # turn block object into singular json entity
         block_data = {
             'prev_hash': self.prev_hash,
