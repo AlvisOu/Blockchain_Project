@@ -190,8 +190,6 @@ class Peer:
                 self.request_chains()
                 self.chain.chain = self.longest_chain
 
-                print("[handle_block] Received block does not connect to known chain. Ignored.")
-
     def handle_transaction(self, transaction, sign):
         """
         Handle a transaction received from another peer.
@@ -218,6 +216,7 @@ class Peer:
                     del self.peers[peer_id]
     
     def request_chains(self):
+        print("[request_chains] fork detected, requesting chains from peers")
         with self.lock:
             self.request_mode = True
             self.requests_needed = len(self.peers)
