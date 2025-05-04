@@ -144,6 +144,7 @@ class Peer:
         Handle the message received from peers.
         Calls handle_block() or handle_transaction() depending on the type of message, as set by the message protocol.
         """
+        print(self.wallet.public_key[:8] + "Received a message")
         if msg["type"] == "transaction":
             tx_bytes = base64.b64decode(msg["data"])
             tx = pickle.loads(tx_bytes)
@@ -185,9 +186,10 @@ class Peer:
         with self.lock:
             if block.prev_hash == self.chain.chain[-1].hash:
                 self.chain.add_block(block)
-                print(f"[handle_block] Block {block.hash} added to chain")
+                print(f"[handle_block] Block {block.hash[:8]} added to chain")
             else:
-                self.request_chains()
+                print(f"[handle_block] Block {block.hash[:8]} received but we mined first")
+                self.request_chains() # Why are we requesting chains here???
                 self.chain.chain = self.longest_chain
 
     def handle_transaction(self, transaction, sign):
@@ -272,7 +274,7 @@ class Peer:
         success, status = self.wallet.send_money(amount, receiver_public_key, self.chain)
         if success:
             self.broadcast(message)
-            print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_public_key}")
+            print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_public_key[:8]}")
             return True
         else:
             print(f"[transfer] error: {status}")
@@ -284,14 +286,31 @@ class Peer:
         Need to call chain.mine_block() and broadcast the block to peers.
         Need to handle the case where a block is received from another peer, since it mined it first. 
         """
-        with self.lock:
-            latest_hash_before = self.chain.chain[-1].hash
-            block = self.chain.mine_block(self.wallet)
-            if self.chain.chain[-1].hash != latest_hash_before:
-                print("[mine_block] New block already added by peer. Aborting own block.")
-                return
+        latest_hash_before = self.chain.chain[-1].hash
+        block = self.chain.mine_block(self.wallet)
+        if block == False:
+            print("[mine_block] New block already added by peer. Aborting own block.")
+            return
+        # with self.lock: # only lock when checking. Give recieve block a chance to win
+        #     if self.chain.chain[-1].hash != latest_hash_before:
+        #         print("[mine_block] New block already added by peer. Aborting own block.")
+        #         return
+
+        # with self.lock:
+        # with self.lock:
+        #     latest_hash_before = self.chain.chain[-1].hash
+        #     block = self.chain.mine_block(self.wallet)
+        #     # if block.prev_hash != latest_hash_before:
+        #     #     print("[mine_block] New block already added by peer. Aborting own block.")
+        #     #     return
+        #     print("self.chain.chain[-1].hash: " + self.chain.chain[-1].hash)
+        #     print("latest_hash_before: " + latest_hash_before)
+        #     if self.chain.chain[-1].hash != latest_hash_before:
+        #         print("[mine_block] New block already added by peer. Aborting own block.")
+        #         return
         
         if block:
+            self.chain.add_block(block)
             pickled_block = pickle.dumps(block)
             # Encode the bytes into a JSON-safe string
             encoded_block = base64.b64encode(pickled_block).decode('utf-8')
@@ -299,6 +318,7 @@ class Peer:
                 "type": "block",
                 "data": encoded_block
             }
+            print("Broadcasting block: " + block.hash[:8])
             self.broadcast(message)
 
     def start(self):

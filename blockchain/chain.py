@@ -87,11 +87,13 @@ class Chain:
         nonce = 0
         while True:
             block = Block(prev_hash, transactions, nonce)
+            if self.chain[-1].hash != prev_hash: # other peer won
+                return False
             if block.hash.startswith("0000"):
                 break
             nonce += 1
         
-        self.add_block(block)
+        #self.add_block(block)
         return block
 
     def add_block(self, block: Block):
@@ -150,9 +152,8 @@ class Chain:
         """
             Prints out balances of all Wallets
         """
-        for public_key, balance_arr in self.balances.items():
-            print("(" + balance_arr[0] + ", " + public_key[:10] + ")" + " has " + str(balance_arr[1]))
-        print()
+        for public_key, balance in self.balances.items():
+            print(public_key[:8]  + " has " + str(balance))
 
     def print_chain(self, start_time: float = 0):
         """
@@ -165,7 +166,7 @@ class Chain:
             print(f"  Prev Hash: {block.prev_hash}")
             print(f"  Transactions:")
             for tx in block.transactions:
-                print(f"     TX:     {tx.amount} from {tx.payer.name} to {tx.payee_public_key}")
+                print(f"     TX:     {tx.amount} from {tx.payer.name} to {tx.payee_public_key[:8]}")
             print(f"  Nonce:     {block.nonce}")
             print(f"  Time:      {block.timestamp - start_time:.2f}")
             print()
