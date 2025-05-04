@@ -43,5 +43,5 @@ class Wallet:
         print(self.name + " sends " + str(amount) +  " to " + payee_public_key)
         transaction = Transaction(amount, self, payee_public_key)
         sign = self.sign(transaction)
-        success, status = chain.recv_transaction(transaction, sign)
+        success, status = chain.recv_transaction(transaction, sign, False)
         return success, status

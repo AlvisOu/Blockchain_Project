@@ -63,11 +63,8 @@ class Tracker:
                 self.public_keys.append(public_key)
                 self.connections.append(client_sock)
             print(f"[Tracker] Peer connected: {peer_id}")
-
-            with self.lock:
-                combined_list = [f"{pid}|{pk}" for pid, pk in zip(self.peer_ids, self.public_keys)]
             
-            client_sock.sendall(json.dumps(combined_list).encode())
+            client_sock.sendall(json.dumps(self.peer_ids).encode())
 
             self.broadcast_public_keys()
 

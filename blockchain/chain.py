@@ -47,7 +47,7 @@ class Chain:
         initial_tx = Transaction(100, self.coinbase, first_wallet_public_key)
         return Block("0" * 64, [initial_tx]), first_wallet_public_key
     
-    def recv_transaction(self, transaction: Transaction, sign: str):
+    def recv_transaction(self, transaction: Transaction, sign: str, receiving: bool):
         """
             Checks:
                 if a transaction and signature matches
@@ -60,7 +60,7 @@ class Chain:
             return False, status
         
         if (transaction.payer != "coinbase" and 
-            (self.get_effective_balance(transaction.payer) < transaction.amount)):
+            (self.get_effective_balance(transaction.payer) < transaction.amount) and not receiving):
             status = "Not enough money, transaction rejected."
             print(status)
             return False, status
@@ -80,11 +80,7 @@ class Chain:
             Iterates over nonce values until it produces a hash starting with
             X number of 0s. Once mined, calls add_block to append to the chain.
         """
-        if len(self.mempool) <= 0:
-            print("No transactions to mine")
-            return None
-        
-        reward_tx = Transaction(self.reward, self.coinbase, miner)
+        reward_tx = Transaction(self.reward, self.coinbase, miner.public_key)
         transactions = [reward_tx] + [tx for tx, _ in self.mempool]
 
         prev_hash = self.chain[-1].hash
@@ -134,7 +130,7 @@ class Chain:
         """
             Returns the balance of a Wallet.
         """
-        return self.balances.get(payer.public_key, ["", 0])[1]
+        return self.balances.get(payer.public_key, 0)
     
     def get_effective_balance(self, payer: Wallet) -> float: #balance with mempool
         """

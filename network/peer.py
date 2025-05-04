@@ -92,13 +92,18 @@ class Peer:
         while True:
             data = self.socket_to_tracker.recv(4096).decode()
             updated_public_keys = json.loads(data)
-            for public_key in updated_public_keys:
-                if public_key not in self.chain.balances:
-                    self.chain.balances[public_key] = 0
-            for public_key in self.chain.balances:
-                if public_key not in updated_public_keys:
-                    del self.chain.balances[public_key]
-            print("[tracker_thread] Successfully updated public keys")
+            with self.lock:
+                updated_public_keys = set(updated_public_keys)
+                current_public_keys = list(self.chain.balances.keys())
+
+                for public_key in updated_public_keys:
+                    if public_key not in self.chain.balances:
+                        self.chain.balances[public_key] = 0
+
+                for public_key in current_public_keys:
+                    if public_key not in updated_public_keys and public_key != "0x1":
+                        del self.chain.balances[public_key]
+                print("[tracker_thread] Successfully updated public keys")
 
     def receive_from_peer(self, conn, peer_id):
         """
@@ -141,7 +146,8 @@ class Peer:
         if msg["type"] == "transaction":
             tx_bytes = base64.b64decode(msg["data"])
             tx = pickle.loads(tx_bytes)
-            self.handle_transaction(tx)
+            sign = msg["signature"]
+            self.handle_transaction(tx, sign)
         elif msg["type"] == "block":
             block_bytes = base64.b64decode(msg["data"])
             block = pickle.loads(block_bytes)
@@ -194,14 +200,13 @@ class Peer:
 
                 print("[handle_block] Received block does not connect to known chain. Ignored.")
 
-    def handle_transaction(self, transaction):
+    def handle_transaction(self, transaction, sign):
         """
         Handle a transaction received from another peer.
         Need to call chain.recv_transaction()
         """
         with self.lock:
-            sign = self.wallet.sign(transaction)
-            self.chain.recv_transaction(transaction, sign)
+            self.chain.recv_transaction(transaction, sign, True)
     
     def broadcast(self, msg):
         """
@@ -264,11 +269,13 @@ class Peer:
         Calls broadcast() to announce the transaction to all peers.
         """
         transaction = Transaction(amount, self.wallet, receiver_public_key)
+        sign = self.wallet.sign(transaction)
         pickled_transaction = pickle.dumps(transaction)
         # Encode the bytes into a JSON-safe string
         encoded_transaction = base64.b64encode(pickled_transaction).decode('utf-8')
         message = {
             "type": "transaction",
+            "signature": sign,
             "data": encoded_transaction
         }
         success, status = self.wallet.send_money(amount, receiver_public_key, self.chain)
