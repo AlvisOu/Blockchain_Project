@@ -19,6 +19,7 @@ class Peer:
         self.request_mode = False
         self.requests = 0
         self.longest_chain_length = 0
+        self.peer_name_map = {}
         self.lock = threading.Lock()
 
     def connect_to_tracker(self):
@@ -37,7 +38,7 @@ class Peer:
         """
         try:
             self.socket_to_tracker.sendall(b"SYN")
-            self.socket_to_tracker.sendall(f"{self.port}|{self.wallet.public_key}\n".encode())
+            self.socket_to_tracker.sendall(f"{self.port}|{self.wallet.public_key}|{self.wallet.name}\n".encode())
             data = self.socket_to_tracker.recv(4096).decode()
             peer_list = json.loads(data)
             return peer_list
@@ -91,8 +92,11 @@ class Peer:
     def tracker_thread(self):
         while True:
             data = self.socket_to_tracker.recv(4096).decode()
-            updated_public_keys = json.loads(data)
+            public_keys_str, names_str = data.strip().split("|", 1)
+            updated_public_keys = json.loads(public_keys_str)
+            updated_names = json.loads(names_str)
             with self.lock:
+                self.peer_name_map = dict(zip(updated_public_keys, updated_names))
                 updated_public_keys = set(updated_public_keys)
                 current_public_keys = list(self.chain.balances.keys())
 
@@ -272,7 +276,8 @@ class Peer:
         success, status = self.wallet.send_money(amount, receiver_public_key, self.chain)
         if success:
             self.broadcast(message)
-            print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_public_key}")
+            receiver_name = self.peer_name_map.get(receiver_public_key, receiver_public_key)
+            print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_name}")
             return True
         else:
             print(f"[transfer] error: {status}")
