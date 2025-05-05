@@ -107,19 +107,9 @@ class Chain:
         
         block_transactions = [tx.to_dict() for tx in block.transactions]
 
-        res = []
-        for tx, _ in self.mempool:
-            res.append(tx.to_dict())
-        print("Mempool transactions before: ", res)
-
         # keep transactions that were not in the block
-        print("Transactions in block: ", [tx.to_dict() for tx in block.transactions])
-        
         self.mempool = [(tx, sign) for (tx, sign) in self.mempool if tx.to_dict() not in block_transactions]
-        res = []
-        for tx, _ in self.mempool:
-            res.append(tx.to_dict())
-        print("Mempool transactions after: ", res)
+        
         print("Block added.")
 
     def update_balances(self, transaction: Transaction):
