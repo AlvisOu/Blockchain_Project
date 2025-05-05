@@ -80,6 +80,7 @@ class Peer:
         Upon discovering a new peer, it will create a thread to listen for messages from that peer.
         """
         listenr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listenr.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listenr.bind(("localhost", self.port))
         listenr.listen()
         print(f"[listener_thread] {self.port} is listening")
@@ -166,9 +167,8 @@ class Peer:
             chain = pickle.loads(chain_bytes)
             self.handle_chain(chain)
         elif msg["type"] == "request":
-            requester = msg["requester"]
             print(type(chain))
-            self.send_chain(requester)
+            self.send_chain()
 
     def handle_chain(self, chain):
         """
@@ -232,16 +232,15 @@ class Peer:
             self.request_mode = True
             self.requests_needed = len(self.peers)
             msg = {
-                "type": "request",
-                "requester": f"localhost:{self.port}"
+                "type": "request"
             }
             self.broadcast(msg)
         
-    def send_chain(self, requester):
+    def send_chain(self):
         """
-        Sends this peer's current blockchain to a requesting peer.
+        Sends this peer's current blockchain to all requesting peers.
         """
-        print(f"[send_chain] {self.wallet.name} Sending chain to {requester}")
+        print(f"[send_chain] {self.wallet.name} Sending chain to all peers")
         pickled_chain = pickle.dumps(self.chain)
         # Encode the bytes into a JSON-safe string
         encoded_chain = base64.b64encode(pickled_chain).decode('utf-8')
@@ -249,15 +248,7 @@ class Peer:
             "type": "chain",
             "data": encoded_chain
         }
-        msg_str = json.dumps(msg) + "\n"
-
-        with self.lock:
-            conn = self.peers[requester]
-        
-        if requester in self.peers:
-            conn.sendall(msg_str)
-        else:
-            print(f"[send_chain] Peer {requester} not found in peers list.")
+        self.broadcast(msg)
 
     def transfer(self, receiver_public_key: str, amount: float):
         """
