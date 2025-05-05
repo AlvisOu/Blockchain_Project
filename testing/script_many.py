@@ -22,40 +22,36 @@ if __name__ == "__main__":
     sunny = run_peer(5001, "Sunny", tracker_host, tracker_port)
     time.sleep(3)
     alvis = run_peer(5002, "Alvis", tracker_host, tracker_port)
-
-    time.sleep(5)
+    time.sleep(3)
+    john = run_peer(5003, "John", tracker_host, tracker_port)
+    time.sleep(3)
+    sky = run_peer(5004, "Sky", tracker_host, tracker_port)
+    time.sleep(3)
+    haruki = run_peer(5005, "Haruki", tracker_host, tracker_port)
+    time.sleep(3)
+    william = run_peer(5006, "William", tracker_host, tracker_port)
+    time.sleep(15)
     
-
-
     print("=== Starting Transactions ===")
-    print(sunny.peer_name_map)
-    print(alvis.peer_name_map)
 
     time.sleep(10)
 
     sunny.transfer(receiver_public_key=alvis.wallet.public_key, amount=5.0)
     time.sleep(5)
+    # print_every_balance(peers)
 
-    sunny.transfer(receiver_public_key=alvis.wallet.public_key, amount=9.0)
+    john.transfer(receiver_public_key=sky.wallet.public_key, amount=9.0)
     time.sleep(5)
 
-    john = run_peer(5003, "John", tracker_host, tracker_port) # Add user in the middle
-    time.sleep(3)
-
-    sunny.transfer(receiver_public_key=john.wallet.public_key, amount=2.0)
+    haruki.transfer(receiver_public_key=william.wallet.public_key, amount=2.0) # Alvis -> Sky
     time.sleep(5)
 
-    john.transfer(receiver_public_key=sunny.wallet.public_key, amount=3.0)
+    william.transfer(receiver_public_key=alvis.wallet.public_key, amount=3.0)
     
-    time.sleep(30)
-    peers = [("Sunny", sunny), ("Alvis", alvis), ("John", john)]
+    time.sleep(40)
+
+    peers = [("Sunny", sunny), ("Alvis", alvis), ("John", john), ("Sky", sky), ("Haruki", haruki), ("William", william)]
     print_every_balance(peers)
-
-    print("Sunny's chain: ")
-    sunny.chain.print_chain()
-
-    print("Alvis's chain: ")
-    alvis.chain.print_chain()
-
-    print("John's chain: ")
-    john.chain.print_chain()
+    for p in peers:
+        print(f"{p[0]}'s chain: ")
+        p[1].chain.print_chain()

@@ -47,23 +47,3 @@ if __name__ == "__main__":
     peer3.transfer(receiver_public_key=peer1.wallet.public_key, amount=1.0) # Sky -> Sunny
     time.sleep(10)
     print_every_balance(peers)
-
-    
-
-
-    # for i in range(5):
-    #     time.sleep(3)
-    #     print("Sunny's Chain. Loop: " + str(i))
-    #     peer1.chain.print_chain(start_time)
-    #     peer1.chain.print_balances()
-    # print("Alvis's Chain")
-    # peer2.chain.print_chain(start_time)
-    # print("Sky's Chain")
-    # peer3.chain.print_chain(start_time)
-
-    """
-    The end result should look like:
-     Sunny: mined - 5
-     Alvis: mined + 3
-     Sky:   mined - 1
-    """
