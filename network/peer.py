@@ -330,7 +330,7 @@ class Peer:
         Get the balance of this peer's wallet.
         """
         with self.lock:
-            return self.chain.get_effective_balance(self.wallet.public_key)
+            return self.chain.get_effective_balance(self.wallet)
 
     def start(self):
         self.connect_to_tracker()

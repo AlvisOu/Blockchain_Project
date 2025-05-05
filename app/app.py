@@ -1,4 +1,3 @@
-# simple_market/app.py
 from flask import Flask, request, jsonify, send_from_directory
 import threading
 from network import Peer
@@ -21,66 +20,55 @@ def api_init(username):
         return jsonify({"error": "Peer already initialized"}), 400
 
     try:
-        # peer_port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
-        # peer = Peer(peer_port, username, tracker_host, tracker_port)
-        # threading.Thread(target=peer.start, daemon=True).start()
+        peer_port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
+        peer = Peer(peer_port, username, tracker_host, tracker_port)
+        threading.Thread(target=peer.start, daemon=True).start()
         return jsonify({"message": f"Peer started for {username}"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/list")
 def api_list():
-    # if not peer:
-    #     return jsonify({"error": "Peer not initialized"}), 400
+    if not peer:
+        return jsonify({"error": "Peer not initialized"}), 400
 
-    # try:
-    #     users = peer.list_users()
-    #     return jsonify([
-    #         {"name": name, "public_key": pubkey}
-    #         for pubkey, name in users
-    #     ]), 200
-
-    # except Exception as e:
-    #     return jsonify({"error": str(e)}), 500
-    return jsonify([
-            {"name": "Sunny", "public_key": "pubkey1"},
-            {"name": "Alvis", "public_key": "pubkey2"},
-            {"name": "Sky", "public_key": "pubkey3"}
+    try:
+        users = peer.list_users()
+        return jsonify([
+            {"name": name, "public_key": pubkey}
+            for pubkey, name in users
         ]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/balance")
 def api_balance():
-    # if not peer:
-    #     return jsonify({"error": "Peer not initialized"}), 400
+    if not peer:
+        return jsonify({"error": "Peer not initialized"}), 400
     
-    # balance = peer.get_balance()
-    # if balance is None:
-    #     return jsonify({"error": "User not found"}), 404
-    # return jsonify({"balance": balance}), 200
-    return jsonify({"balance": 100.0}), 200
+    balance = peer.get_balance()
+    if balance is None:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify({"balance": balance}), 200
 
 @app.route("/api/send", methods=["POST"])
 def api_send():
-    # if not peer:
-    #     return jsonify({"success": False, "message": "Peer not initialized"}), 400
+    if not peer:
+        return jsonify({"success": False, "message": "Peer not initialized"}), 400
 
     data = request.get_json(force=True)
     sender = data.get("sender")
     recipient = data.get("recipient")
     amount = data.get("amount")
 
-    # try:
-    #     peer.transfer(receiver_public_key=recipient, amount=int(amount))
-    #     return jsonify({
-    #         "success": True,
-    #         "message": f"Sent {amount} from {sender} to {recipient}"
-    #     }), 200
-    # except Exception as e:
-    #     return jsonify({"success": False, "message": str(e)}), 500
-    return jsonify({
-        "success": True,
-        "message": f"Sent {amount} from {sender} to {recipient}"
-    }), 200
+    try:
+        peer.transfer(receiver_public_key=recipient, amount=int(amount))
+        return jsonify({
+            "success": True,
+            "message": f"Sent {amount} from {sender} to {recipient}"
+        }), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
