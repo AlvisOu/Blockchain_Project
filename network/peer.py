@@ -181,7 +181,7 @@ class Peer:
                 self.longest_chain = chain
                 self.longest_chain_length = len(chain.chain)
             self.requests += 1
-            if self.requests == len(self.peers):
+            if self.requests == len(self.peers) - 1:
                 self.request_mode = False
                 self.requests = 0
                 self.longest_chain_length = 0
