@@ -164,8 +164,7 @@ class Peer:
         elif msg["type"] == "chain":
             chain_bytes = base64.b64decode(msg["data"])
             chain = pickle.loads(chain_bytes)
-            peer = msg["sender"]
-            self.handle_chain(peer, chain)
+            self.handle_chain(chain)
         elif msg["type"] == "request":
             requester = msg["requester"]
             print(type(chain))
@@ -248,7 +247,6 @@ class Peer:
         encoded_chain = base64.b64encode(pickled_chain).decode('utf-8')
         msg = {
             "type": "chain",
-            "sender": f"localhost:{self.port}",
             "data": encoded_chain
         }
         msg_str = json.dumps(msg) + "\n"
