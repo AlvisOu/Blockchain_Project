@@ -20,7 +20,7 @@ class Peer:
         self.requests = 0
         self.longest_chain_length = 0
         self.peer_name_map = {}
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
 
     def connect_to_tracker(self):
         """
@@ -176,6 +176,7 @@ class Peer:
         """
         print(f"[handle_chain] {self.wallet.name} received a chain")
         with self.lock:
+            self.longest_chain = self.chain
             if len(chain.chain) > self.longest_chain_length:
                 self.longest_chain = chain
                 self.longest_chain_length = len(chain.chain)
@@ -198,7 +199,7 @@ class Peer:
             else:
                 print(f"[handle_block] Fork detected!")
                 self.request_chains()
-                self.chain.chain = self.longest_chain
+                self.chain.chain = self.longest_chain 
 
     def handle_transaction(self, transaction, sign):
         """
