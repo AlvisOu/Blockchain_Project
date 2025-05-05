@@ -199,6 +199,8 @@ class Peer:
             if block.prev_hash == self.chain.chain[-1].hash:
                 self.chain.add_block(block)
                 print(f"[handle_block] {self.wallet.name} block {block.hash[:8]} added to chain")
+            elif not block.hash.startswith("0000"):
+                print(f"[handle_block] Invalid block detected! Discarding block.")
             else:
                 print(f"[handle_block] Fork detected!")
                 self.request_chains()

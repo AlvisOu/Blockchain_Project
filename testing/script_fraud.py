@@ -1,6 +1,9 @@
 import threading
 import time
 from network import Peer
+from blockchain import Block, Transaction
+import pickle
+import base64
 
 def run_peer(port, name, tracker_host, tracker_port):
     peer = Peer(port=port, name=name, tracker_addr=tracker_host, tracker_port=tracker_port)
@@ -13,7 +16,8 @@ def print_every_balance(peers):
         print(peer[0] + ":")
         peer[1].chain.print_balances()
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
+
     start_time = time.time()
 
     tracker_host = "localhost"
@@ -22,33 +26,34 @@ if __name__ == "__main__":
     sunny = run_peer(5001, "Sunny", tracker_host, tracker_port)
     time.sleep(3)
     alvis = run_peer(5002, "Alvis", tracker_host, tracker_port)
+    time.sleep(3)
+    sky = run_peer(5003, "Sky", tracker_host, tracker_port)
+    time.sleep(10)
+    peers = [("Sunny", sunny), ("Alvis", alvis), ("Sky", sky)]
 
-    time.sleep(5)
-    
+    fraud_transaction = Transaction(37, sky.wallet, sunny.wallet.public_key) # Make sky pay sunny 37 bucks
+    fraud_block = Block(0x64, [fraud_transaction])
 
+    pickled_block = pickle.dumps(fraud_block)
+    # Encode the bytes into a JSON-safe string
+    encoded_block = base64.b64encode(pickled_block).decode('utf-8')
+    fraud_block_message = {
+        "type": "block",
+        "data": encoded_block
+    }
 
     print("=== Starting Transactions ===")
     print(sunny.peer_name_map)
     print(alvis.peer_name_map)
+    print(sky.peer_name_map)
 
     time.sleep(10)
 
-    sunny.transfer(receiver_public_key=alvis.wallet.public_key, amount=5.0)
+    sunny.transfer(receiver_public_key=alvis.wallet.public_key, amount=-90.0)
     time.sleep(5)
-
-    sunny.transfer(receiver_public_key=alvis.wallet.public_key, amount=9.0)
-    time.sleep(5)
-
-    john = run_peer(5003, "John", tracker_host, tracker_port) # Add user in the middle
-    time.sleep(3)
-
-    sunny.transfer(receiver_public_key=john.wallet.public_key, amount=2.0)
-    time.sleep(5)
-
-    john.transfer(receiver_public_key=sunny.wallet.public_key, amount=3.0)
-    
-    time.sleep(30)
-    peers = [("Sunny", sunny), ("Alvis", alvis), ("John", john)]
+    sunny.broadcast(fraud_block_message) # sunny makes sky pay him 37 coins
+    time.sleep(20)
+    print("After fraud: ")
     print_every_balance(peers)
 
     print("Sunny's chain: ")
@@ -57,5 +62,5 @@ if __name__ == "__main__":
     print("Alvis's chain: ")
     alvis.chain.print_chain()
 
-    print("John's chain: ")
-    john.chain.print_chain()
+    print("Sky's chain: ")
+    sky.chain.print_chain()
