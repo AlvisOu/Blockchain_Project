@@ -15,12 +15,11 @@ class Peer:
         self.wallet = Wallet(name=name)
         self.chain = Chain()
         self.socket_to_tracker = None
-        self.longest_chain = None
         self.request_mode = False
         self.requests = 0
         self.longest_chain_length = 0
         self.peer_name_map = {}
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
 
     def connect_to_tracker(self):
         """
@@ -65,7 +64,8 @@ class Peer:
                     ip, port = peer.split(":")
                     sock = socket.create_connection((ip, int(port)))
                     peer_id = f"{ip}:{port}"
-                    self.peers[peer_id] = sock
+                    with self.lock:
+                        self.peers[peer_id] = sock
                     print(f"[form_peer_connections] {self.port} connected to {peer}")
                     threading.Thread(target=self.receive_from_peer, args=(sock, peer_id), daemon=True).start()
                 except Exception as e:
@@ -79,6 +79,7 @@ class Peer:
         Upon discovering a new peer, it will create a thread to listen for messages from that peer.
         """
         listenr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listenr.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listenr.bind(("localhost", self.port))
         listenr.listen()
         print(f"[listener_thread] {self.port} is listening")
@@ -87,7 +88,8 @@ class Peer:
             conn, addr = listenr.accept()
             print(f"[listener_thread] {self.port} accepted connection from {addr}")
             peer_id = f"{addr[0]}:{addr[1]}"
-            self.peers[peer_id] = conn
+            with self.lock:
+                self.peers[peer_id] = conn
             threading.Thread(target=self.receive_from_peer, args=(conn, peer_id), daemon=True).start()
 
     def tracker_thread(self):
@@ -129,7 +131,7 @@ class Peer:
                         try:
                             msg = json.loads(line)
                             if self.request_mode:
-                                if msg["type"] == "chain":
+                                if msg["type"] == "chain" or msg["type"] == "request":
                                     self.handle_message(msg)
                             else:
                                 self.handle_message(msg)
@@ -159,29 +161,32 @@ class Peer:
             block = pickle.loads(block_bytes)
             self.handle_block(block)
         elif msg["type"] == "chain":
-            chain_bytes = base64.b64decode(msg["data"])
-            chain = pickle.loads(chain_bytes)
-            peer = msg["sender"]
-            self.handle_chain(peer, chain)
+            chain = pickle.loads(base64.b64decode(msg["chain"]))
+            received_balances = pickle.loads(base64.b64decode(msg["balances"]))
+            received_mempool = pickle.loads(base64.b64decode(msg["mempool"]))
+            self.handle_chain(chain, received_balances, received_mempool)
         elif msg["type"] == "request":
-            requester = msg["requester"]
-            print(type(chain))
-            self.send_chain(requester)
+            self.send_chain()
 
-    def handle_chain(self, chain):
+    def handle_chain(self, chain, received_balances, received_mempool):
         """
         Handle a chain received from another peer
         """
         print(f"[handle_chain] {self.wallet.name} received a chain")
         with self.lock:
-            if len(chain.chain) > self.longest_chain_length:
+            if len(chain) > self.longest_chain_length:
                 self.longest_chain = chain
-                self.longest_chain_length = len(chain.chain)
+                self.longest_chain_length = len(chain)
+                self.received_balances = received_balances
+                self.received_mempool = received_mempool
             self.requests += 1
-            if self.requests == len(self.peers):
+            if self.requests == len(self.peers) - 1:
+                self.chain.chain = self.longest_chain
                 self.request_mode = False
                 self.requests = 0
                 self.longest_chain_length = 0
+                self.chain.balances = self.received_balances
+                self.chain.mempool = self.received_mempool
 
     def handle_block(self, block):
         """
@@ -196,7 +201,6 @@ class Peer:
             else:
                 print(f"[handle_block] Fork detected!")
                 self.request_chains()
-                self.chain.chain = self.longest_chain
 
     def handle_transaction(self, transaction, sign):
         """
@@ -213,56 +217,48 @@ class Peer:
         This message may be a new transaction or a new block mined.
         """
         msg_str = json.dumps(msg) + "\n"
-
-        for peer_id, conn in self.peers.items():
-            try:
-                conn.sendall(msg_str.encode())
-            except Exception as e:
-                print(f"[broadcast] error: {e}")
-                conn.close()
-                # we need this "if" check since the listener thread may have deleted that already
-                if peer_id in self.peers:
-                    del self.peers[peer_id]
+        with self.lock:
+            for peer_id, conn in self.peers.items():
+                try:
+                    conn.sendall(msg_str.encode())
+                except Exception as e:
+                    print(f"[broadcast] error: {e}")
+                    conn.close()
+                    # we need this "if" check since the listener thread may have deleted that already
+                    if peer_id in self.peers:
+                        del self.peers[peer_id]
     
     def request_chains(self):
         print("[request_chains] fork detected, requesting chains from peers")
         with self.lock:
             self.request_mode = True
             self.requests_needed = len(self.peers)
-        for peer_id, conn in self.peers.items():
             msg = {
-                "type": "request",
-                "requester": f"localhost:{self.port}"
+                "type": "request"
             }
-            msg_str = json.dumps(msg) + "\n"
-            try:
-                conn.sendall(msg_str.encode())
-            except Exception as e:
-                print(f"[request_chains] error: {e}")
-                conn.close()
-                # we need this "if" check since the listener thread may have deleted that already
-                if peer_id in self.peers:
-                    del self.peers[peer_id]
+            self.broadcast(msg)
         
-    def send_chain(self, requester):
+    def send_chain(self):
         """
-        Sends this peer's current blockchain to a requesting peer.
+        Sends this peer's current blockchain to all requesting peers.
         """
-        print(f"[send_chain] {self.wallet.name} Sending chain to {requester}")
-        pickled_chain = pickle.dumps(self.chain)
+        print(f"[send_chain] {self.wallet.name} Sending chain to all peers")
+        pickled_chain = pickle.dumps(self.chain.chain)
         # Encode the bytes into a JSON-safe string
         encoded_chain = base64.b64encode(pickled_chain).decode('utf-8')
+
+        pickled_mempool = pickle.dumps(self.chain.mempool)
+        encoded_mempool = base64.b64encode(pickled_mempool).decode('utf-8')
+
+        pickled_balances = pickle.dumps(self.chain.balances)
+        encoded_balances = base64.b64encode(pickled_balances).decode('utf-8')
         msg = {
             "type": "chain",
-            "sender": f"localhost:{self.port}",
-            "data": encoded_chain
+            "chain": encoded_chain,
+            "mempool": encoded_mempool,
+            "balances": encoded_balances
         }
-        msg_str = json.dumps(msg) + "\n"
-        if requester in self.peers:
-            conn = self.peers[requester]
-            conn.sendall(msg_str)
-        else:
-            print(f"[send_chain] Peer {requester} not found in peers list.")
+        self.broadcast(msg)
 
     def transfer(self, receiver_public_key: str, amount: float):
         """

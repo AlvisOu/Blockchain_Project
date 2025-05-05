@@ -10,11 +10,8 @@ class Tracker:
     def __init__(self, host='0.0.0.0', port=8000):
         self.host = host
         self.port = port
-        self.peer_ids = []
-        self.public_keys = []
+        self.peers = {}
         self.lock = threading.Lock()
-        self.connections = []
-        self.names = []
 
     def start(self):
         """
@@ -60,13 +57,15 @@ class Tracker:
             peer_id = f"{ip}:{peer_listen_port}"
 
             with self.lock:
-                self.peer_ids.append(peer_id)
-                self.public_keys.append(public_key)
-                self.connections.append(client_sock)
-                self.names.append(name)
+                self.peers[peer_id] = {
+                    'public_key': public_key,
+                    'name': name,
+                    'connection': client_sock
+                }
             print(f"[Tracker] Peer connected: {peer_id}")
             
-            client_sock.sendall(json.dumps(self.peer_ids).encode())
+            peer_ids = list(self.peers.keys())
+            client_sock.sendall(json.dumps(peer_ids).encode())
 
             self.broadcast_public_keys_and_names()
 
@@ -90,14 +89,10 @@ class Tracker:
         Removes a peer from all tracking lists when the peer disconnects.
         """
         with self.lock:
-            if peer_id in self.peer_ids:
-                index = self.peer_ids.index(peer_id)
-                del self.peer_ids[index]
-                del self.public_keys[index]
-                del self.names[index]
-                del self.connections[index]
+            if peer_id and peer_id in self.peers:
+                del self.peers[peer_id]
                 print(f"[Tracker] Peer disconnected: {peer_id}")
-            else:
+            elif peer_id:
                 print(f"[Tracker] Tried to unregister unknown peer: {peer_id}")
         self.broadcast_public_keys_and_names()
 
@@ -106,14 +101,17 @@ class Tracker:
         Broadcasts the current list of public keys and names to all connected peers.
         """
         with self.lock:
-            public_keys_str = json.dumps(self.public_keys)
-            names_str = json.dumps(self.names)
+            public_keys = [peer_data['public_key'] for peer_data in self.peers.values()]
+            names = [peer_data['name'] for peer_data in self.peers.values()]
+            public_keys_str = json.dumps(public_keys)
+            names_str = json.dumps(names)
             combined = f"{public_keys_str}|{names_str}\n".encode()
-            for conn in list(self.connections):
+            for peer_id, peer_data in list(self.peers.items()):
                 try:
-                    conn.sendall(combined)
-                except:
-                    self.connections.remove(conn)
+                    peer_data['connection'].sendall(combined)
+                except Exception:
+                    print(f"[Tracker] Failed to send to peer {peer_id}, removing connection")
+                    del self.peers[peer_id]
 
 
 if __name__ == "__main__":
