@@ -137,6 +137,7 @@ class Peer:
                                 self.handle_message(msg)
                         except json.JSONDecodeError as e:
                             print(f"[receive_from_peer] JSON decode error: {e}")
+                            return
             except Exception as e:
                 print(f"[receive_from_peer] error: {e}")
             finally:

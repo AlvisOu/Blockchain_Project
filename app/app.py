@@ -20,7 +20,7 @@ def api_init(username):
         return jsonify({"error": "Peer already initialized"}), 400
 
     try:
-        peer_port = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
+        peer_port = int(sys.argv[1])*5 if len(sys.argv) > 1 else 5000
         peer = Peer(peer_port, username, tracker_host, tracker_port)
         threading.Thread(target=peer.start, daemon=True).start()
         return jsonify({"message": f"Peer started for {username}"}), 200

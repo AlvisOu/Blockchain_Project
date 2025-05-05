@@ -184,7 +184,7 @@
               $("user").disabled = true;
               $("setUserBtn").disabled = true;
               $("userSetMsg").textContent = `Username set: ${username}`;
-              render(`Username set! Welcome ${username}`);
+              render(`Username set! Welcome ${username}!`);
             });
         };
 
@@ -194,7 +194,7 @@
             .then(data => {
               if (data.error) return render(data.error);
 
-              const output = ["Users:", ...data.map(u => `- ${u.name} (${u.public_key.slice(0, 8)})`)].join("\n");
+              const output = ["Users:", ...data.map(u => `- ${u.name} (${u.public_key.slice(0, 8)}...)`)].join("\n");
               render(output);
 
               const select = $("recipientSelectModal");
