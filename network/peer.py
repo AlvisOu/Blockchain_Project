@@ -320,9 +320,9 @@ class Peer:
         """
         res = []
         with self.lock:
-            for public_key in self.chain.balances.keys():
+            for public_key, name in self.peer_name_map.items():
                 if public_key != self.wallet.public_key and public_key != "0x1" and public_key != "0x0":
-                    res.append(public_key)
+                    res.append((public_key, name))
         return res
     
     def get_balance(self):
@@ -338,7 +338,7 @@ class Peer:
         threading.Thread(target=self.listener_thread, daemon=True).start()
         threading.Thread(target=self.tracker_thread, daemon=True).start()
         
-        # Collects transaction from mempool to mine a block every 5 seconds
+        # Collects transaction from mempool to mine a block every 10 seconds
         while True:
             time.sleep(10)
             self.mine_block()

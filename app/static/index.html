@@ -74,7 +74,11 @@
       </div>
 
       <h3>Send Collectables!</h3>
-      <input id="to" placeholder="recipient" />
+      <label for="recipient">Recipient:</label>
+      <select id="recipientSelect">
+        <option value="">-- Select a user --</option>
+      </select>
+      <input id="to" placeholder="recipient public key" />
       <input id="amt" type="number" min="1" placeholder="amount" />
       <button id="sendBtn">Send</button>
 
@@ -90,36 +94,52 @@
       $("setUserBtn").onclick = () => {
         const username = $("user").value.trim();
         if (!username) return alert("Enter a username first");
-        if (userSet) return; // already locked
+        if (userSet) return;
 
-        userSet = true;
-        $("user").disabled = true;
-        $("setUserBtn").disabled = true;
-        $("userSetMsg").textContent = `Username set: ${username}`;
-        render(`Username set! Welcome ${username}`);
+        fetch(`/api/init/${encodeURIComponent(username)}`).then((res) =>
+          res.json().then((data) => {
+            if (data.error) return alert(data.error);
+
+            userSet = true;
+            $("user").disabled = true;
+            $("setUserBtn").disabled = true;
+            $("userSetMsg").textContent = `Username set: ${username}`;
+            render(`Username set! Welcome ${username}`);
+          })
+        );
       };
 
       const render = (text) => {
         $("out").textContent = text;
       };
 
-      /* Listing the users */
       $("listBtn").onclick = () => {
         fetch("/api/list")
           .then((response) => response.json())
           .then((data) => {
-            const output = ["Users:", ...data.map((name) => `- ${name}`)].join(
-              "\n"
-            );
+            if (data.error) return render(data.error);
+
+            // Display in output box
+            const output = ["Users:"].concat(
+              data.map((u) => `- ${u.name} (${u.public_key.slice(0, 8)}...)`)
+            ).join("\\n");
             render(output);
+
+            // Populate dropdown
+            const select = $("recipientSelect");
+            select.innerHTML = '<option value="">-- Select a user --</option>'; // clear
+            data.forEach((user) => {
+              const option = document.createElement("option");
+              option.value = user.public_key;
+              option.textContent = user.name;
+              select.appendChild(option);
+            });
           });
       };
 
       /* ---- Balance ---- */
       $("balBtn").onclick = () => {
-        if (!userSet) return alert("Set your username first");
-        const username = $("user").value.trim();
-        fetch(`/api/balance/${encodeURIComponent(u)}`)
+        fetch(`/api/balance`)
           .then((response) => response.json())
           .then((data) => {
             if (data.error) return render(data.error);
