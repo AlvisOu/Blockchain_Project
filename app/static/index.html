@@ -121,8 +121,8 @@
 
             // Display in output box
             const output = ["Users:"].concat(
-              data.map((u) => `- ${u.name} (${u.public_key.slice(0, 8)}...)`)
-            ).join("\\n");
+              data.map((u) => `- ${u.name} (${u.public_key})`)
+            ).join("\n");
             render(output);
 
             // Populate dropdown
@@ -134,6 +134,9 @@
               option.textContent = user.name;
               select.appendChild(option);
             });
+            select.onchange = () => {
+              $("to").value = select.value;
+            };
           });
       };
 
