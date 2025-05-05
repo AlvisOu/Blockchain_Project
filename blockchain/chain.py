@@ -41,7 +41,7 @@ class Chain:
         self.chain = [genesis_block]
         self.mempool: list[tuple[Transaction, str]] = [] # List of (tx, signature)
         self.update_balances(genesis_block.transactions[0])
-
+        
     def create_first_block(self):
         first_wallet_public_key = '0x1'
         initial_tx = Transaction(100, self.coinbase, first_wallet_public_key)
@@ -104,9 +104,22 @@ class Chain:
         self.chain.append(block)
         for tx in block.transactions:
             self.update_balances(tx)
+        
+        block_transactions = [tx.to_dict() for tx in block.transactions]
+
+        res = []
+        for tx, _ in self.mempool:
+            res.append(tx.to_dict())
+        print("Mempool transactions before: ", res)
 
         # keep transactions that were not in the block
-        self.mempool = [(tx, sign) for (tx, sign) in self.mempool if tx not in block.transactions]
+        print("Transactions in block: ", [tx.to_dict() for tx in block.transactions])
+        
+        self.mempool = [(tx, sign) for (tx, sign) in self.mempool if tx.to_dict() not in block_transactions]
+        res = []
+        for tx, _ in self.mempool:
+            res.append(tx.to_dict())
+        print("Mempool transactions after: ", res)
         print("Block added.")
 
     def update_balances(self, transaction: Transaction):
@@ -170,5 +183,3 @@ class Chain:
             print(f"  Nonce:     {block.nonce}")
             print(f"  Time:      {block.timestamp - start_time:.2f}")
             print()
-
-

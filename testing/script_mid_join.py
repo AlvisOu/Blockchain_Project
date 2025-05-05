@@ -43,7 +43,7 @@ if __name__ == "__main__":
     john = run_peer(5003, "John", tracker_host, tracker_port) # Add user in the middle
     time.sleep(3)
 
-    sunny.transfer(receiver_public_key=john.wallet.public_key, amount=2.0) # Alvis -> Sky
+    sunny.transfer(receiver_public_key=john.wallet.public_key, amount=2.0)
     time.sleep(5)
 
     john.transfer(receiver_public_key=sunny.wallet.public_key, amount=3.0)
