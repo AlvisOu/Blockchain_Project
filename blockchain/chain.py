@@ -70,6 +70,11 @@ class Chain:
             print(status)
             return False, status
         
+        if (transaction.amount <= 0):
+            status = "Cannot give negative money, transaction rejected."
+            print(status)
+            return False, status
+        
         self.mempool.append((transaction, sign))
         status = "Transaction added to mempool"
         print(status)
