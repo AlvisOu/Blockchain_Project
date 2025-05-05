@@ -15,7 +15,6 @@ class Peer:
         self.wallet = Wallet(name=name)
         self.chain = Chain()
         self.socket_to_tracker = None
-        self.longest_chain = None
         self.request_mode = False
         self.requests = 0
         self.longest_chain_length = 0
@@ -167,7 +166,6 @@ class Peer:
             chain = pickle.loads(chain_bytes)
             self.handle_chain(chain)
         elif msg["type"] == "request":
-            print(type(chain))
             self.send_chain()
 
     def handle_chain(self, chain):
@@ -176,12 +174,12 @@ class Peer:
         """
         print(f"[handle_chain] {self.wallet.name} received a chain")
         with self.lock:
-            self.longest_chain = self.chain
-            if len(chain.chain) > self.longest_chain_length:
+            if len(chain) > self.longest_chain_length:
                 self.longest_chain = chain
-                self.longest_chain_length = len(chain.chain)
+                self.longest_chain_length = len(chain)
             self.requests += 1
             if self.requests == len(self.peers) - 1:
+                self.chain.chain = self.longest_chain
                 self.request_mode = False
                 self.requests = 0
                 self.longest_chain_length = 0
@@ -199,7 +197,6 @@ class Peer:
             else:
                 print(f"[handle_block] Fork detected!")
                 self.request_chains()
-                self.chain.chain = self.longest_chain 
 
     def handle_transaction(self, transaction, sign):
         """
@@ -242,7 +239,7 @@ class Peer:
         Sends this peer's current blockchain to all requesting peers.
         """
         print(f"[send_chain] {self.wallet.name} Sending chain to all peers")
-        pickled_chain = pickle.dumps(self.chain)
+        pickled_chain = pickle.dumps(self.chain.chain)
         # Encode the bytes into a JSON-safe string
         encoded_chain = base64.b64encode(pickled_chain).decode('utf-8')
         msg = {
