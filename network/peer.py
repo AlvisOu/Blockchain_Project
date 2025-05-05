@@ -132,7 +132,7 @@ class Peer:
                         try:
                             msg = json.loads(line)
                             if self.request_mode:
-                                if msg["type"] == "chain":
+                                if msg["type"] == "chain" or msg["type"] == "request":
                                     self.handle_message(msg)
                             else:
                                 self.handle_message(msg)
@@ -232,20 +232,11 @@ class Peer:
         with self.lock:
             self.request_mode = True
             self.requests_needed = len(self.peers)
-        for peer_id, conn in self.peers.items():
             msg = {
                 "type": "request",
                 "requester": f"localhost:{self.port}"
             }
-            msg_str = json.dumps(msg) + "\n"
-            try:
-                conn.sendall(msg_str.encode())
-            except Exception as e:
-                print(f"[request_chains] error: {e}")
-                conn.close()
-                # we need this "if" check since the listener thread may have deleted that already
-                if peer_id in self.peers:
-                    del self.peers[peer_id]
+            self.broadcast(msg)
         
     def send_chain(self, requester):
         """
