@@ -162,13 +162,14 @@ class Peer:
             block = pickle.loads(block_bytes)
             self.handle_block(block)
         elif msg["type"] == "chain":
-            chain_bytes = base64.b64decode(msg["data"])
-            chain = pickle.loads(chain_bytes)
-            self.handle_chain(chain)
+            chain = pickle.loads(base64.b64decode(msg["chain"]))
+            received_balances = pickle.loads(base64.b64decode(msg["balances"]))
+            received_mempool = pickle.loads(base64.b64decode(msg["mempool"]))
+            self.handle_chain(chain, received_balances, received_mempool)
         elif msg["type"] == "request":
             self.send_chain()
 
-    def handle_chain(self, chain):
+    def handle_chain(self, chain, received_balances, received_mempool):
         """
         Handle a chain received from another peer
         """
@@ -177,12 +178,16 @@ class Peer:
             if len(chain) > self.longest_chain_length:
                 self.longest_chain = chain
                 self.longest_chain_length = len(chain)
+                self.received_balances = received_balances
+                self.received_mempool = received_mempool
             self.requests += 1
             if self.requests == len(self.peers) - 1:
                 self.chain.chain = self.longest_chain
                 self.request_mode = False
                 self.requests = 0
                 self.longest_chain_length = 0
+                self.chain.balances = self.received_balances
+                self.chain.mempool = self.received_mempool
 
     def handle_block(self, block):
         """
@@ -242,9 +247,17 @@ class Peer:
         pickled_chain = pickle.dumps(self.chain.chain)
         # Encode the bytes into a JSON-safe string
         encoded_chain = base64.b64encode(pickled_chain).decode('utf-8')
+
+        pickled_mempool = pickle.dumps(self.chain.mempool)
+        encoded_mempool = base64.b64encode(pickled_mempool).decode('utf-8')
+
+        pickled_balances = pickle.dumps(self.chain.balances)
+        encoded_balances = base64.b64encode(pickled_balances).decode('utf-8')
         msg = {
             "type": "chain",
-            "data": encoded_chain
+            "chain": encoded_chain,
+            "mempool": encoded_mempool,
+            "balances": encoded_balances
         }
         self.broadcast(msg)
 
