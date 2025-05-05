@@ -52,6 +52,12 @@
         height: 44px;
       }
 
+      input:disabled {
+        background-color: #e0e0e0;
+        color: #555;
+        cursor: not-allowed;
+      }
+
       input, select {
         flex: 1;
         min-width: 0;
@@ -113,8 +119,18 @@
 
       .status-msg {
         margin-top: 8px;
-        color: lightgreen;
-        font-weight: bold;
+        padding: 8px 12px;
+        background-color: #dff0d8;
+        border-left: 6px solid #4caf50;
+        color: #2e7d32;
+        font-weight: 500;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: opacity 0.3s ease;
+      }
+
+      #userSetMsg {
+        display: none;
       }
 
       .modal {
@@ -170,8 +186,20 @@
     <script>
       const $ = (id) => document.getElementById(id);
       let userSet = false;
+      let lastAction = null;
+      let countdown = 10;
 
       window.onload = () => {
+        setInterval(() => {
+          if (lastAction) {
+            countdown--;
+            if (countdown <= 0) {
+              lastAction();
+              countdown = 10;
+            }
+            $("refreshCountdown").textContent = `(refreshes in ${countdown}s)`;
+          }
+        }, 1000);
         $("setUserBtn").onclick = () => {
           const username = $("user").value.trim();
           if (!username || userSet) return;
@@ -183,41 +211,25 @@
               userSet = true;
               $("user").disabled = true;
               $("setUserBtn").disabled = true;
-              $("userSetMsg").textContent = `Username set: ${username}`;
+              const msgBox = $("userSetMsg");
+              msgBox.textContent = `Username set: ${username}`;
+              msgBox.style.display = "block";
               render(`Username set! Welcome ${username}!`);
             });
         };
 
         $("listBtn").onclick = () => {
-          fetch("/api/list")
-            .then(res => res.json())
-            .then(data => {
-              if (data.error) return render(data.error);
-
-              const output = ["Users:", ...data.map(u => `- ${u.name} (${u.public_key.slice(0, 8)}...)`)].join("\n");
-              render(output);
-
-              const select = $("recipientSelectModal");
-              select.innerHTML = '<option value="">-- Select a user --</option>';
-              data.forEach(user => {
-                const option = document.createElement("option");
-                option.value = user.public_key;
-                option.textContent = user.name;
-                select.appendChild(option);
-              });
-              select.onchange = () => {
-                $("toModal").value = select.value;
-              };
-            });
+          lastAction = fetchUserList;
+          fetchUserList();
+          countdown = 10;
+          $("refreshCountdown").style.display = "inline";
         };
 
         $("balBtn").onclick = () => {
-          fetch("/api/balance")
-            .then(res => res.json())
-            .then(data => {
-              if (data.error) return render(data.error);
-              render(`Your balance is ${data.balance}.`);
-            });
+          lastAction = fetchBalance;
+          fetchBalance();
+          countdown = 10;
+          $("refreshCountdown").style.display = "inline";
         };
 
         $("toggleSendBtn").onclick = () => {
@@ -270,6 +282,42 @@
       function render(text) {
         $("out").textContent = text;
       }
+
+      function fetchUserList() {
+        fetch("/api/list")
+          .then(res => res.json())
+          .then(data => {
+            if (data.error) return render(data.error);
+            let output;
+            if (data.length === 0) {
+              output = "No user is found.";
+            } else {
+              output = ["Users:", ...data.map(u => `- ${u.name} (${u.public_key.slice(0, 8)}...)`)].join("\n");
+            }
+            render(output);
+
+            const select = $("recipientSelectModal");
+            select.innerHTML = '<option value="">-- Select a user --</option>';
+            data.forEach(user => {
+              const option = document.createElement("option");
+              option.value = user.public_key;
+              option.textContent = user.name;
+              select.appendChild(option);
+            });
+            select.onchange = () => {
+              $("toModal").value = select.value;
+            };
+          });
+      }
+
+      function fetchBalance() {
+        fetch("/api/balance")
+          .then(res => res.json())
+          .then(data => {
+            if (data.error) return render(data.error);
+            render(`Your balance is ${data.balance}.`);
+          });
+      }
     </script>
   </head>
   <body>
@@ -294,7 +342,7 @@
         </div>
       </section>
       <section class="section output-section">
-        <h3>Output</h3>
+        <h3>Output <span id="refreshCountdown" style="font-size: 0.9rem; color: #666; margin-left: 8px; display: none;"></span></h3>
         <div id="out"></div>
       </section>
     </div>
