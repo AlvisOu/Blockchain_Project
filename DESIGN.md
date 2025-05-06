@@ -201,4 +201,51 @@ the blockchain network, you cannot participate in it anymore. You can only
 reconnect as a different user.
 
 -- Please enter design about network
--- Please enter design about website
+
+
+WEBSITE:
+The UI is designed to be fun and nostalgic, reflecting a blend of McDonald’s
+charm and Minecraft aesthetics. Each instance of the website corresponds to 
+a distinct peer in the blockchain network, launching a standalone web interface
+tied to its own wallet. Users can set a username to identify their wallet, view
+the list of active peers on the network, check their current balance, and send
+collectables to others.
+
+To enhance interactivity, the output section automatically refreshes every 10
+seconds after listing users or checking balances. A live countdown timer is 
+displayed to indicate the time remaining until the next refresh. Additionally,
+once a username is set, the input field becomes disabled and is visually styled
+to signal that the wallet identity is locked for the session.
+
+The app.py file defines the web server that each blockchain peer uses to expose
+its functionality to a local web interface. Each instance of this server is
+tied to a single peer, initialized with a specific username and port. The
+server is built using Flask and exposes a small set of RESTful endpoints that
+allow the frontend that’s served from index.html to interact with the
+blockchain backend via HTTP requests.
+
+The root route / serves the main frontend interface. When a user accesses the
+peer in a browser, this route returns the static index.html page from the
+static/ directory. This page contains the McDonald’s/Minecraft-themed UI
+through which users interact with the peer.
+
+The /api/init/<username> route is responsible for initializing the peer. When
+the user enters a username in the UI, a request is sent to this route, which
+creates a Peer object. The peer is then started in a background thread,
+allowing it to connect to the tracker, form connections with other peers, and
+begin mining.
+
+The /api/list route returns the current list of active peers on the network.
+Each peer is represented by its name and public key. This route is used by
+the frontend to populate the dropdown for selecting a transaction recipient.
+
+The /api/balance route returns the current wallet balance of the peer. The
+frontend uses this route to allow users to check how many coins they have
+available for sending. If the peer is not initialized or its wallet is not
+recognized, appropriate error responses are returned.
+
+The /api/send route allows a user to send collectables to another peer. This
+is a POST endpoint that accepts a JSON payload with the sender’s name, the
+recipient’s public key, and the amount to send. The server calls the
+peer.transfer() method, which creates and signs a transaction, then
+broadcasts it to the network.
