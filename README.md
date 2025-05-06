@@ -16,7 +16,7 @@ UNI: ms6124
 Member 4:
 Name: John Zhang Dong
 UNI: jzd2103
-
+```
 mcdonalds_collectable_blockchain/
 │
 ├── blockchain/                 # Core blockchain logic (you already have this)
@@ -46,7 +46,7 @@ mcdonalds_collectable_blockchain/
 ├── README.md                   # Contains file structure and team info
 ├── DESIGN.md                   # Design details of project
 └── TESTING.md                  # Testing script details and results
-
+```
 TESTING INSTRUCTIONS:
 
 Note: For all instructions, run it in the root directory
