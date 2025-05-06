@@ -1,14 +1,3 @@
-TESTING INSTRUCTIONS:
-
-1. Open the server with `python network/tracker.py`
-   - Can be kept on across multiple testing sessions
-2. In a different terminal, run a script in the testing/
-   folder with `python -m testing.<script_name>`
-   - Do NOT add the `.py` extension
-   - Ex. `python -m testing.script` to run script.py
-
----
-
 Testcase 1 - Basic 3 peers:
 Script: script_three_ppl.py
 
@@ -25,7 +14,8 @@ a few transactions:
 
 Our results indicate all chains are synchronized,
 there is no double counting with transactions, and
-the balances of all the peers add up.
+the balances of all the peers add up. Forks do often
+occur in this testing script and they get resolved.
 
 ---
 
@@ -48,7 +38,9 @@ Our results indicate all chains are synchronized,
 there is no double counting with transactions, and
 the balances of all the peers add up. Importantly,
 John, the late-comer, has the longest PoW chain by
-the end of the session.
+the end of the session. Fork inevitably occurs in this
+test (since John needs to catch up), so it shows
+fork resolution.
 
 ---
 
@@ -66,7 +58,9 @@ of them exchange in a transaction at least once.
 
 Our results indicate all chains are synchronized,
 there is no double counting with transactions, and
-the balances of all the peers add up.
+the balances of all the peers add up. Fork occurs often
+in this test (due to number of peers), so this shows
+fork resolution.4
 
 ---
 

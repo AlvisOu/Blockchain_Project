@@ -169,114 +169,36 @@ functionality, including: - Adding blocks - Mining blocks - Tracking the balance
     on the prev_hash, hash, list of transactions, nonce, and time of each
     block.
 
-REMAINING DESIGN IMPLEMENTATION REQUIREMENTS:
-Currently, our implementation is only feasible on a single computer.
-There is only one blockchain, and every Wallet makes transactions on
-this one blockchain.
 
-    We will still need to adjust this implementation so that it will operate
-    on multiple nodes, with each node maintaining their own blockchain and
-    having the ability to broadcast new blocks. This will also necessitate
-    fork handling functionality. That is, given a conflict resulted by
-    two blocks being created at nearly the same time, a node must pick the
-    blockchain with the most PoW.
 
-    To do this, we will use the following protocol:
-    During initialization, every single peer initialize with the exact
-    same process. I.e., if there are four nodes, instead of one node doing the
-    initialization and broadcasting it to everyone else, every single peer
-    will simply just follow an identical initialization process. This should
-    cause every node to create an identical block, which will be broadcast to
-    every other peer, thus starting the mining of the first block.
 
-    Obviously, this doesn't address the case where a peer joins later or
-    disconnects and reconnects later. In this case, the peer will request
-    a copy of the blockchain from every other peer. It will then compare each
-    peer's blockchain and take the longest one there is.
+FORKING:
+For forking, we will address simultaneous blocks on the network level. If,
+say, there are two chains, and a fork occurs creating blocks A and B,
+the chains will individually just accept whatever block comes first,
+since both blocks will have the same height and thus have no priority
+over the other. This creates a scenario where chain 1 may lead with
+block A, while chain 2 leads with block B. At this point, it is a matter
+of which block will be mined next. If A's block is mined next, chain 1
+will simply append it, while chain 2 will detect that this new block is
+not only inconsistent with its own chain but that it also has a longer
+height. In this case, chain 2 will reach out to other peers to find the
+peer with the matching block. When found, it will simply replace its own
+chain with this new longest chain. Additionally, the mempool will also be
+sent over along with the chain so that the receiving peer is in sync with
+the sending one.
 
-    For forking, we will address simultaneous blocks on the network level. If,
-    say, there are two chains, and a fork occurs creating blocks A and B,
-    the chains will individually just accept whatever block comes first,
-    since both blocks will have the same height and thus have no priority
-    over the other. This creates a scenario where chain 1 may lead with
-    block A, while chain 2 leads with block B. At this point, it is a matter
-    of which block will be mined next. If A's block is mined next, chain 1
-    will simply append it, while chain 2 will detect that this new block is
-    not only inconsistent with its own chain but that it also has a longer
-    height. In this case, chain 2 will reach out to other peers to find the
-    peer with the matching block. When found, it will simply replace its own
-    chain with this new longest chain.
+CONNECTING/DISCONNECTING:
+Our current protocol allows for connecting and disconnecting mid session.
+In other words, if users A and B joins, makes some transactions, and user
+C joins, then user C will have no problem catching up to the correct chain
+and being in sync with the rest of the network.
+When a peer leaves, it is also able to leave gracefully.
 
-    While this replacement occurs, the node will compile a list of
-    transactions from the old chain and the new chain. Any transactions in
-    the old chain but not the new one will be added to the mempool. This
-    ensures the mempool is updated and valid.
+We did make a specific design consideration where if a peer disconnects, then
+it is impossible for that same peer to reconnect. Essentially, once you leave
+the blockchain network, you cannot participate in it anymore. You can only
+reconnect as a different user.
 
-    We will also need to test our blockchain protocol for resilience towards
-    invalid transactions and modifications.
-
-    If these above feature are attained, then the core of the assignment
-    will be completed.
-
-FUTURE DESIGN CONSIDERATIONS:
-There are several optional areas of improvement we can make. Given time,
-we will likely attempt to create a graphical interface for our crypto
-exchange protocol, and the use of a merkle tree to verify and include
-multiple transactions (blocks already contain multiple transactions,
-but not using a merkle tree). A merkle tree's main advantage is to
-verify the existance of a transaction in a block without needing
-the entire block, making hashing efficient.
-
-MISC NOTES:
-Broadcasting the blocks should occur within the mining of the block.
-
-Also, while mining, the miner should check for other block broadcasts.
-If it hears a new block broadcasted, it should stop mining the current
-block and mine the new block.
-
-Below is an example of what our repository may be structured like:
-
-```
-micro-crypto-economy/
-│
-├── blockchain/                 # Core blockchain logic
-│   ├── __init__.py
-│   ├── wallet.py               # Wallet + signature logic
-│   ├── transaction.py          # Transaction object
-│   ├── block.py                # Block object
-│   └── chain.py                # Chain logic, mempool, mining, balances
-│
-├── network/                    # P2P network and tracker communication
-│   ├── __init__.py
-│   ├── peer.py                 # Each peer runs this (node logic)
-│   ├── tracker.py              # Tracker server
-│   └── connection.py           # Socket/gRPC wrappers (connect, broadcast)
-│
-├── scripts/                    # Simulation scripts for testing behavior
-│   ├── run_script.py           # Runs a peer using instructions in a script.txt
-│   └── example_script.txt      # Sample: Alice sends Bob 5, mine, print balance
-│
-├── tests/
-│   ├── test_chain.py           # Test mining, fork resolution, double spend
-│   ├── test_transaction.py     # Signature verification, invalid tx rejection
-│   └── ...
-│
-├── utils/
-│   ├── crypto.py               # Hashing, signing, base64 utils
-│   └── config.py               # Constants: difficulty, port #s, etc.
-│
-├── run_peer.py                 # Entrypoint to launch a peer node
-├── run_tracker.py              # Entrypoint to launch the tracker
-├── requirements.txt
-└── README.md
-```
-
-Potential script.txt for reference:
-CREATE_WALLET Alice
-CREATE_WALLET Bob
-SEND Alice 10 Bob
-SEND Alice 15 Bob
-MINE Alice
-BALANCE Alice
-BALANCE Bob
-CHAIN
+-- Please enter design about network
+-- Please enter design about website

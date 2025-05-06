@@ -43,6 +43,9 @@ class Chain:
         self.update_balances(genesis_block.transactions[0])
         
     def create_first_block(self):
+        """
+        Creates the genesis block of the blockchain.
+        """
         first_wallet_public_key = '0x1'
         initial_tx = Transaction(100, self.coinbase, first_wallet_public_key)
         return Block("0" * 64, [initial_tx], genesis=True), first_wallet_public_key

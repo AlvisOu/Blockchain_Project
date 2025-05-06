@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Blockchain Demo Wallet</title>
+    <style>
+      :root {
+        --accent-yellow: #ffc300;
+        --accent-red: #d00000;
+        --gray: #ccc;
+      }
+
+      body {
+        margin: 0;
+        font-family: 'Segoe UI', sans-serif;
+        background: linear-gradient(to bottom, #6b8e23 0%, #6b8e23 50%, #8b4513 50%, #8b4513 100%);
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+        background-size: 100% 100%;
+        color: var(--gray);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      .wrapper {
+        width: 960px;
+        background: #f5e9cb;
+        padding: 32px;
+        border-radius: 20px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8);
+        border: 2px solid var(--accent-yellow);
+        backdrop-filter: blur(4px);
+      }
+
+      h2, h3 {
+        color: var(--accent-yellow);
+        margin: 0 0 12px;
+      }
+
+      h2 {
+        font-size: 1.8rem;
+        text-shadow: 1px 1px 2px #000;
+        text-align: center;
+      }
+
+      input, select, button {
+        font-size: 1rem;
+        border-radius: 6px;
+        box-sizing: border-box;
+        height: 44px;
+      }
+
+      input:disabled {
+        background-color: #e0e0e0;
+        color: #555;
+        cursor: not-allowed;
+      }
+
+      input, select {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 14px;
+        border: none;
+        background: #f8f8f8;
+        color: #222;
+      }
+
+      button {
+        padding: 0 16px;
+        border: none;
+        background: var(--accent-yellow);
+        color: #000;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.1s ease;
+      }
+
+      button:hover {
+        background: var(--accent-red);
+        color: #fff;
+        transform: scale(1.02);
+      }
+
+      button:disabled {
+        background: #aaa;
+        color: #333;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      #out {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #bbb;
+        padding: 14px;
+        border-radius: 8px;
+        white-space: pre-wrap;
+        color: #000;
+        min-height: 80px;
+        margin-top: 14px;
+      }
+
+      .section {
+        margin-bottom: 28px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .form-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .form-row.full-width > button {
+        flex: 1;
+      }
+
+      .status-msg {
+        margin-top: 8px;
+        padding: 8px 12px;
+        background-color: #dff0d8;
+        border-left: 6px solid #4caf50;
+        color: #2e7d32;
+        font-weight: 500;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: opacity 0.3s ease;
+      }
+
+      #userSetMsg {
+        display: none;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background: rgba(0, 0, 0, 0.6);
+      }
+
+      .modal-content {
+        background-color: #fff;
+        margin: 10% auto;
+        padding: 24px;
+        border: 2px solid #ffc300;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 400px;
+        color: #000;
+      }
+
+      .modal-content h3 {
+        margin: 0 0 12px;
+        color: #d00000;
+      }
+
+      .modal-content input,
+      .modal-content select {
+        width: 100%;
+        margin-top: 6px;
+        padding: 8px;
+        font-size: 1rem;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+
+      .modal-content .secondary {
+        background: #ccc;
+        color: #000;
+      }
+
+      .modal-content label {
+        color: #222;
+        font-weight: 500;
+        display: block;
+        margin-top: 16px;
+      }
+    </style>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let userSet = false;
+      let lastAction = null;
+      let countdown = 10;
+
+      window.onload = () => {
+        setInterval(() => {
+          if (lastAction) {
+            countdown--;
+            if (countdown <= 0) {
+              lastAction();
+              countdown = 10;
+            }
+            $("refreshCountdown").textContent = `(refreshes in ${countdown}s)`;
+          }
+        }, 1000);
+        $("user").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            $("setUserBtn").click();
+          }
+        });
+        $("setUserBtn").onclick = () => {
+          const username = $("user").value.trim();
+          if (!username || userSet) return;
+
+          fetch(`/api/init/${encodeURIComponent(username)}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.error) return alert(data.error);
+              userSet = true;
+              $("user").disabled = true;
+              $("setUserBtn").disabled = true;
+              const msgBox = $("userSetMsg");
+              msgBox.textContent = `Username set: ${username}`;
+              msgBox.style.display = "block";
+              render(`Username set! Welcome ${username}!`);
+            });
+        };
+
+        $("listBtn").onclick = () => {
+          lastAction = fetchUserList;
+          fetchUserList();
+          countdown = 10;
+          $("refreshCountdown").style.display = "inline";
+        };
+
+        $("balBtn").onclick = () => {
+          lastAction = fetchBalance;
+          fetchBalance();
+          countdown = 10;
+          $("refreshCountdown").style.display = "inline";
+        };
+
+        $("toggleSendBtn").onclick = () => {
+          $("sendModal").style.display = "block";
+        };
+
+        $("closeModalBtn").onclick = () => {
+          $("sendModal").style.display = "none";
+        };
+
+        window.onclick = (e) => {
+          if (e.target === $("sendModal")) {
+            $("sendModal").style.display = "none";
+          }
+        };
+
+        $("sendBtnModal").onclick = () => {
+          if (!userSet) return alert("Set your username first");
+          const sender = $("user").value.trim();
+          const recipient = $("toModal").value.trim();
+          const amount = parseInt($("amtModal").value, 10);
+          if (!recipient || !amount) return alert("Fill recipient and amount");
+
+          fetch("/api/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sender, recipient, amount })
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success) {
+                render(`Transaction Succeeded! You sent ${amount} coins to ${recipient.slice(0, 8)}...`);
+                $("balBtn").disabled = true;
+                setTimeout(() => $("balBtn").disabled = false, 5000);
+              } else {
+                const msg = data.message;
+                  render(`Transaction Failed.`);
+              }
+              $("sendModal").style.display = "none";
+            });
+        };
+      };
+
+      function render(text) {
+        $("out").textContent = text;
+      }
+
+      function fetchUserList() {
+        fetch("/api/list")
+          .then(res => res.json())
+          .then(data => {
+            if (data.error) return render(data.error);
+            let output;
+            if (data.length === 0) {
+              output = "No user is found.";
+            } else {
+              output = ["Users:", ...data.map(u => `- ${u.name} (${u.public_key.slice(0, 8)}...)`)].join("\n");
+            }
+            render(output);
+
+            const select = $("recipientSelectModal");
+            select.innerHTML = '<option value="">-- Select a user --</option>';
+            data.forEach(user => {
+              const option = document.createElement("option");
+              option.value = user.public_key;
+              option.textContent = user.name;
+              select.appendChild(option);
+            });
+            select.onchange = () => {
+              $("toModal").value = select.value;
+            };
+          });
+      }
+
+      function fetchBalance() {
+        fetch("/api/balance")
+          .then(res => res.json())
+          .then(data => {
+            if (data.error) return render(data.error);
+            render(`Your balance is ${data.balance}.`);
+          });
+      }
+    </script>
+  </head>
+  <body>
+    <div class="wrapper">
+      <section class="section title-section">
+        <h2>McDonalds Collectables Exchange</h2>
+      </section>
+      <section class="section username-section">
+        <h3>Set Your Username</h3>
+        <div class="form-row">
+          <input id="user" placeholder="Your name" />
+          <button id="setUserBtn">Set</button>
+        </div>
+        <span id="userSetMsg" class="status-msg"></span>
+      </section>
+      <section class="section action-section">
+        <h3>Actions</h3>
+        <div class="form-row full-width">
+          <button id="listBtn">List Users</button>
+          <button id="balBtn">Check Balance</button>
+          <button id="toggleSendBtn">Send Collectables</button>
+        </div>
+      </section>
+      <section class="section output-section">
+        <h3>Output <span id="refreshCountdown" style="font-size: 0.9rem; color: #666; margin-left: 8px; display: none;"></span></h3>
+        <div id="out"></div>
+      </section>
+    </div>
+    <div id="sendModal" class="modal">
+      <div class="modal-content">
+        <h3>Send Collectables</h3>
+        <label for="recipientSelectModal">Recipient:</label>
+        <select id="recipientSelectModal">
+          <option value="">-- Select a user --</option>
+        </select>
+        <label for="toModal">Recipient Public Key:</label>
+        <input id="toModal" placeholder="Public key" />
+        <label for="amtModal">Amount:</label>
+        <input id="amtModal" type="number" min="1" placeholder="Amount" />
+        <div class="form-row" style="margin-top: 12px;">
+          <button id="sendBtnModal">Send</button>
+          <button id="closeModalBtn" class="secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

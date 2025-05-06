@@ -93,6 +93,10 @@ class Peer:
             threading.Thread(target=self.receive_from_peer, args=(conn, peer_id), daemon=True).start()
 
     def tracker_thread(self):
+        """
+        Listens for updates from the tracker server.
+        Receives updated lists of public keys and corresponding peer names.
+        """
         while True:
             data = self.socket_to_tracker.recv(4096).decode()
             public_keys_str, names_str = data.strip().split("|", 1)
@@ -108,8 +112,7 @@ class Peer:
                         self.chain.balances[public_key] = 0
 
                 for public_key in current_public_keys:
-                    if public_key not in updated_public_keys:
-                    # if public_key not in updated_public_keys and public_key != "0x1" and public_key != "0x0":
+                    if public_key not in updated_public_keys and public_key != "0x1" and public_key != "0x0":
                         del self.chain.balances[public_key]
                 print(f"[tracker_thread] {self.port} successfully received updated public keys")
 
@@ -138,6 +141,7 @@ class Peer:
                                 self.handle_message(msg)
                         except json.JSONDecodeError as e:
                             print(f"[receive_from_peer] JSON decode error: {e}")
+                            return
             except Exception as e:
                 print(f"[receive_from_peer] error: {e}")
             finally:
@@ -313,13 +317,34 @@ class Peer:
             print("Broadcasting block: " + block.hash[:8])
             self.broadcast(message)
 
+    def list_users(self):
+        """
+        List the public keys of all other users in the network.
+        """
+        res = []
+        with self.lock:
+            for public_key, name in self.peer_name_map.items():
+                if public_key != self.wallet.public_key and public_key != "0x1" and public_key != "0x0":
+                    res.append((public_key, name))
+        return res
+    
+    def get_balance(self):
+        """
+        Get the balance of this peer's wallet.
+        """
+        with self.lock:
+            return self.chain.get_effective_balance(self.wallet)
+
     def start(self):
+        """
+        Entry point to start the peer node.
+        """
         self.connect_to_tracker()
         self.form_peer_connections()
         threading.Thread(target=self.listener_thread, daemon=True).start()
         threading.Thread(target=self.tracker_thread, daemon=True).start()
         
-        # Collects transaction from mempool to mine a block every 5 seconds
+        # Collects transaction from mempool to mine a block every 10 seconds
         while True:
             time.sleep(10)
             self.mine_block()
