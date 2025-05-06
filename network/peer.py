@@ -283,10 +283,10 @@ class Peer:
             self.broadcast(message)
             receiver_name = self.peer_name_map.get(receiver_public_key, receiver_public_key)
             print(f"[transfer] {self.wallet.name} sent {amount} to {receiver_name}")
-            return True
+            return True, status
         else:
             print(f"[transfer] error: {status}")
-            return False
+            return False, status
 
     def mine_block(self):
         """
