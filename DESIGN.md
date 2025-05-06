@@ -153,6 +153,37 @@ to the blockchain
     on the prev_hash, hash, list of transactions, nonce, and time of each
     block.
 
+Class Peer:
+
+    tracker_thread() - this thread is used to receive updates for the latest 
+    public keys and their corresponding names, which are sent by the tracker. If 
+    it discovers that new peers have joined, it updates balances accordingly, and 
+    if peers have left, it deletes their entry in balances.
+
+    handle_message() - used to handle messages received from other peers based on 
+    the type of message received. Pickle and base64 is used for deserializing data.
+
+    handle_chain() - when a peer receives a chain (along with the mempool and balances)
+    from another peer, this function is used to keep track of the longest received 
+    chain. If the received chain is longer than the current longest received chain, 
+    then this gets updated along with the received mempool and balances. Once the peer 
+    has received all chains, its chain, mempool, and balances get updated, and request 
+    mode is turned off. 
+
+    handle_block() - after a peer broadcasts their mined block, this function checks if 
+    the block is valid by comparing the previous hash with the hash of the last block on 
+    their chain, and adds it to their chain. It also checks if the nonce is correct, and 
+    handles forks by calling request_chains().
+
+    request_chains() - once a fork is detected, the peer enters request mode, meaning it 
+    should only handle message of type "request" or "chain". The peer then broadcasts a 
+    request message to all other peers in the network to inform them to send their chain,
+    mempool, and balances.
+
+    send_chain() - when a peer receives a request message, it broadcasts its chain, 
+    mempool, and balances to all other peers. Serializing the data is done through 
+    pickle and base64.
+
 
 CONNECTING/DISCONNECTING:
 Our current protocol allows for connecting and disconnecting mid session.
