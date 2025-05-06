@@ -93,6 +93,10 @@ class Peer:
             threading.Thread(target=self.receive_from_peer, args=(conn, peer_id), daemon=True).start()
 
     def tracker_thread(self):
+        """
+        Listens for updates from the tracker server.
+        Receives updated lists of public keys and corresponding peer names.
+        """
         while True:
             data = self.socket_to_tracker.recv(4096).decode()
             public_keys_str, names_str = data.strip().split("|", 1)
@@ -332,6 +336,9 @@ class Peer:
             return self.chain.get_effective_balance(self.wallet)
 
     def start(self):
+        """
+        Entry point to start the peer node.
+        """
         self.connect_to_tracker()
         self.form_peer_connections()
         threading.Thread(target=self.listener_thread, daemon=True).start()
