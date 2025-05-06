@@ -16,7 +16,7 @@ Name: John Zhang Dong
 UNI: jzd2103
 
 BLOCKCHAIN APPLICATION:
-The goal our blockchain is to create a cryptocurrency that can be exchanged
+The goal of our blockchain is to create a cryptocurrency that can be exchanged
 P2P in a decentralized manner, similar to that of Bitcoin.
 
 BLOCKCHAIN COMPONENTS:
@@ -29,14 +29,17 @@ A Wallet represents a single, uniquely identifiable user who can send money
 to other users if they have enough coins. A Wallet is also capable of
 mining blocks to get a reward from the coinbase. In essence, a Wallet
 is a generic user in a crypto economy that can exchange crypto and mine
-blocks.
+blocks. It has a sign() function that gets called in the send_money()
+function to provide a signature for a transaction.
 
 Class Transaction:
 A Transaction represents a single instance of one Wallet giving money
 to another Wallet. This could be a user paying another user, or the
 coinbase paying a miner. It simply contains the amount of money
-exchanged and the payer and payee involved in the transaction. Transaction
-contains two similar but distinct functions to help create the blocks.
+exchanged and the payer (as a Wallet object) and the payee's public key
+(since a payer doesn't have acccess to the payee's Wallet) involved in the
+transaction. Transaction contains two similar but distinct functions to help
+create the blocks.
 
     to_dict() - creates a dictionary containing all the Transaction information,
     which is then used to produce the hash for a block.
@@ -84,7 +87,9 @@ components:
 
 Class Chain:
 The actual block-chain itself. This class contains most of the blockchain
-functionality, including: - Adding blocks - Mining blocks - Tracking the balances of every Wallet - Tracking the list of transactions not yet commited to the blockchain
+functionality, including: - Adding blocks - Mining blocks - Tracking the
+balances of every Wallet - Tracking the list of transactions not yet commited
+to the blockchain
 
     The first step of the chain class is initialization. Obviously, someone has
     to start with some money for this crypto economy to work.
@@ -102,30 +107,9 @@ functionality, including: - Adding blocks - Mining blocks - Tracking the balance
 
     All of the above steps take place in __init__() and create_first_block().
 
-        Note, this is the first big deviation in design choice, since the actual
-        'genesis' wealth isn't simply given to some user, but rather earned through
-        mining.
-
-        In Satoshi's paper, the first (block 0) transaction was mined, giving
-        Satoshi 50 BTC, but this BTC was ceremonial and not actually usable. It was
-        the second (block 1) mined that gave a usuable reward to Satoshi.
-
-        In other words, our 'genesis wealth' is seemingly given instead of mined,
-        and this is because the condition for block creation in our block chain
-        is that there must be transactions present. Thus, if we don't hardcode
-        a transaction in, no blocks can exist, and no Wallets will ever have
-        money to spend and thus create a transaction (chicken and egg problem).
-
-        We plan to change this system so that we broadcast the first block
-        as an empty block (contains no transaction), and the first Wallet to
-        mine it will get the genesis wealth. To do this, we may implement a
-        timer system so that every, say, 30 seconds, it will check if there are
-        still no transactions in the mempool. If that is the case,a block will
-        just be created automatically to keep the blockchain progressing.
-
     Now, lets go over some of the functions:
 
-    create_first_block() - as explained above, essentially hardcodes the first
+    create_first_block() - essentially hardcodes the first
     transaction and block into the blockchain.
 
     recv_transaction() - puts a transaction into the mempool. The mempool is
@@ -170,24 +154,6 @@ functionality, including: - Adding blocks - Mining blocks - Tracking the balance
     block.
 
 
-
-
-FORKING:
-For forking, we will address simultaneous blocks on the network level. If,
-say, there are two chains, and a fork occurs creating blocks A and B,
-the chains will individually just accept whatever block comes first,
-since both blocks will have the same height and thus have no priority
-over the other. This creates a scenario where chain 1 may lead with
-block A, while chain 2 leads with block B. At this point, it is a matter
-of which block will be mined next. If A's block is mined next, chain 1
-will simply append it, while chain 2 will detect that this new block is
-not only inconsistent with its own chain but that it also has a longer
-height. In this case, chain 2 will reach out to other peers to find the
-peer with the matching block. When found, it will simply replace its own
-chain with this new longest chain. Additionally, the mempool will also be
-sent over along with the chain so that the receiving peer is in sync with
-the sending one.
-
 CONNECTING/DISCONNECTING:
 Our current protocol allows for connecting and disconnecting mid session.
 In other words, if users A and B joins, makes some transactions, and user
@@ -198,7 +164,11 @@ When a peer leaves, it is also able to leave gracefully.
 We did make a specific design consideration where if a peer disconnects, then
 it is impossible for that same peer to reconnect. Essentially, once you leave
 the blockchain network, you cannot participate in it anymore. You can only
-reconnect as a different user.
+reconnect as a different user. One can leave the blockchain network by hitting
+Ctrl+C to terminate the flask server, which is mapped to a Peer node 1-to-1.
+The tracker and the other nodes will realize the departure of the new node,
+terminate associated connections (listening threads) and clean up book-keeping
+data structures such as peers and peer_name_map.
 
 -- Please enter design about network
 
