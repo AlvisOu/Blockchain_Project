@@ -175,7 +175,8 @@ class Peer:
 
     def handle_chain(self, chain, received_balances, received_mempool):
         """
-        Handle a chain received from another peer
+        Handle a chain received from another peer.
+        Keeps track of the longest chain received, and updates balances and mempool once all chains have been received.
         """
         print(f"[handle_chain] {self.wallet.name} received a chain")
         with self.lock:
@@ -236,6 +237,9 @@ class Peer:
                         del self.peers[peer_id]
     
     def request_chains(self):
+        """
+        Broadcast a message to all peers in the network requesting for chains.
+        """
         print("[request_chains] fork detected, requesting chains from peers")
         with self.lock:
             self.request_mode = True
