@@ -200,6 +200,11 @@
             $("refreshCountdown").textContent = `(refreshes in ${countdown}s)`;
           }
         }, 1000);
+        $("user").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            $("setUserBtn").click();
+          }
+        });
         $("setUserBtn").onclick = () => {
           const username = $("user").value.trim();
           if (!username || userSet) return;
@@ -262,19 +267,13 @@
             .then(data => {
               if (data.success) {
                 render(`Transaction Succeeded! You sent ${amount} coins to ${recipient.slice(0, 8)}...`);
-                $("sendModal").style.display = "none";
                 $("balBtn").disabled = true;
                 setTimeout(() => $("balBtn").disabled = false, 5000);
               } else {
-                const msg = data.message || "Transaction Failed. Unknown error.";
-                if (msg.toLowerCase().includes("not enough")) {
-                  render(`Transaction Failed. You don't have enough money.\n${msg}`);
-                } else if (msg.toLowerCase().includes("payee")) {
-                  render("Transaction Failed. The payee does not exist.");
-                } else {
-                  render(`Transaction Failed. ${msg}`);
-                }
+                const msg = data.message;
+                  render(`Transaction Failed.`);
               }
+              $("sendModal").style.display = "none";
             });
         };
       };

@@ -62,11 +62,17 @@ def api_send():
     amount = data.get("amount")
 
     try:
-        peer.transfer(receiver_public_key=recipient, amount=int(amount))
-        return jsonify({
-            "success": True,
-            "message": f"Sent {amount} from {sender} to {recipient}"
-        }), 200
+        success = peer.transfer(receiver_public_key=recipient, amount=int(amount))
+        if success:
+            return jsonify({
+                "success": success,
+                "message": f"Sent {amount} from {sender} to {recipient}"
+            }), 200
+        else:
+            return jsonify({
+                "success": success,
+                "message": f"Tried to send {amount} from {sender} to {recipient}"
+            }), 400
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
