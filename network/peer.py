@@ -70,8 +70,6 @@ class Peer:
                     threading.Thread(target=self.receive_from_peer, args=(sock, peer_id), daemon=True).start()
                 except Exception as e:
                     print(f"[refresh_peer_connections] {self.port} connection error when connecting to {peer}: {e}")
-            
-        self.last_refresh = time.time()
 
     def listener_thread(self):
         """

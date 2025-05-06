@@ -155,9 +155,61 @@ to the blockchain
 
 Class Peer:
 
+    Each peer object is instantiated with a built-in Wallet and Chain. They
+    also have two important datastructures in the form of peers and
+    peer_name_map. The former is used to map a given "IP address:port" string
+    to a socket connection to bookkeep the list of peers a particular peer is
+    maintaining a connection to. peer_name_map allows each node to know the
+    public_key to name pairing of the other nodes in the system, so a user,
+    when accessing the webiste, may pick someone to send to.
+
+    start() is a function that calls all the necessary functions for a peer
+    to join a network---connect_to_tracker(), form_peer_connections()---as
+    well as starting the genesis listener thread and the tracker listener
+    background thread. Then, it goes into a while True loop where it would
+    try to mine
+
+    connect_to_tracker() simply allows a peer to connect to the tracker, thereby
+    registering itself.
+
+    get_peer_list() is inside form_peer_connections() for a newly joined node
+    to report its own public_key and name to the tracker, before receiving the
+    IP address and port of each peer.
+
+    form_peer_connections() is called for a newly joined peer to form a
+    connection with all the other peers in the system before forming a background
+    listening thread with each peer so it can hear the broadcast messages from
+    the other peers.
+
+    listener_thread() is the function in the genesis background listener thread.
+    It continuously looks for connection requests to accept as peers that have
+    joined later call form_peer_connections(). This function will then spawn a
+    new background listener thread to listen for messages sent by the newly
+    joined peers. 
+
+        Note: at this point we have covered the backbone of this P2P network:
+        everyone forms a connection with everyone else, and everyone also has
+        a background listener thread to listen for messages from everyone else.
+        The background listner threads are needed as receive blocks and we want
+        each node be able to listen to everyone simultaneously.
+
+    receive_from_peer is the function called by the background listener threads.
+    It receives in chunks of 4096, adds them to a buffer, delimits messages in
+    the buffer with delimiter "\n" and calls handle_message().
+
+    broadcast() is a function that takes a message, appends it with a \n as
+    delimiter, and calls sendall() to every peer its connected to by
+    iteratring through self.peers.
+
+    transfer() creates a new transaction based on the parameters received, signs
+    the transaction, and calls wallet.send_money() to try to add the transaction
+    to its own mempool. If the integrity checks pass, the transaction gets added
+    successfully and is broadcast to everyone else, so they can add it their
+    mempools and start mining. 
+
     tracker_thread() - this thread is used to receive updates for the latest 
     public keys and their corresponding names, which are sent by the tracker. If 
-    it discovers that new peers have joined, it updates balances accordingly, and 
+    it discovers that new peers have joined, it updates balances accordingly, and
     if peers have left, it deletes their entry in balances.
 
     handle_message() - used to handle messages received from other peers based on 
@@ -184,6 +236,8 @@ Class Peer:
     mempool, and balances to all other peers. Serializing the data is done through 
     pickle and base64.
 
+    list_users() and get_balance() are functions exposed to app.py for the flask
+    server to be able to retrieve relevant infromation for the website.
 
 CONNECTING/DISCONNECTING:
 Our current protocol allows for connecting and disconnecting mid session.
@@ -201,8 +255,15 @@ The tracker and the other nodes will realize the departure of the new node,
 terminate associated connections (listening threads) and clean up book-keeping
 data structures such as peers and peer_name_map.
 
--- Please enter design about network
-
+FORKS:
+Much of the actual implementation has been discussed in the separate functions
+above. In essence, a fork is detected when a block isn't invalid, yet it's also
+not compatible with the last block on the chain. The peer will then request for
+chain from everyone else and take the longest chain to be its chain, while also
+receiving the up-to-date blances and mempool from the peer with the longest chain.
+The balances and mempool also need to be refreshed since by receiving a chain
+as opposed to receiving block by block, it didn't have the opportunity to update
+its balances and clear its mempool accordingly.
 
 WEBSITE:
 The UI is designed to be fun and nostalgic, reflecting a blend of McDonald’s
