@@ -48,8 +48,11 @@ mcdonalds_collectable_blockchain/
 └── TESTING.md                  # Testing script details and results
 
 TESTING INSTRUCTIONS:
+
+Note: For all instructions, run it in the root directory
+
 FOR TERMINAL ONLY
-1. Open the server with `python network/tracker.py`
+1. Open the server with `python -m network.tracker`
    - Can be kept on across multiple testing sessions
 2. In a different terminal, run a script in the testing/
    folder with `python -m testing.<script_name>`
@@ -57,3 +60,20 @@ FOR TERMINAL ONLY
    - Ex. `python -m testing.script` to run script.py
 
 WITH WEBSITE INTERFACE
+1. Open the server with `python -m network.tracker`
+   - Can be kept on across multiple testing sessions
+2. For every single peer you want to create, open a 
+   separate terminal and run `python -m app.app <port_number>`
+   - Make sure every user has a different port number (5000, 5001, etc.)
+3. Take the IP address of your peers and open it in different browsers
+   - The address will be shown in the terminal when you run the 2nd command
+   - i.e. run 127.0.0.1:5000 in a chrome browser.
+4. In the "Set Your Username" box, type the name of the
+   peer and click set. This will create the peer and wallet
+   associated with the peer.
+5. Click on "List Users" to retrieve the list of users you can
+   send money to.
+   - If you don't click on this button, send collectables will
+     not recognize the existing users even if the blockchain does.
+     The list of users will simply be empty according to the website
+6. Click on check balance to retrieve the balance of your user.
