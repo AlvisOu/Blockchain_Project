@@ -203,6 +203,22 @@ data structures such as peers and peer_name_map.
 
 -- Please enter design about network
 
+Class Tracker:
+The Tracker is responsible for managing peer discovery and registration in the
+network. While it facilitates communication between peers by helping them
+discover each other, it does not participate in the blockchain protocol itself
+(e.g., mining blocks). Upon receiving an incoming connection, the Tracker
+registers the peer by recording its IP address, port, public key, and username.
+These values are stored in an internal directory implemented as a dictionary,
+where each peer is uniquely identified using a peer_id in the format
+"{ip}:{port}". When a new peer joins, the Tracker sends it the current list of
+connected peers and broadcasts an updated mapping of all peers’ public keys and
+usernames to every active connection. This broadcasted data is encoded as a
+single string in the format "[public_keys]|[names]\n" to ensure synchronized
+updates across the network. The Tracker also handles peer disconnections
+gracefully, removing them from the registry and rebroadcasting the revised peer
+list.
+
 
 WEBSITE:
 The UI is designed to be fun and nostalgic, reflecting a blend of McDonald’s
