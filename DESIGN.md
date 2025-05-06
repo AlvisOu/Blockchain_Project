@@ -169,6 +169,40 @@ functionality, including: - Adding blocks - Mining blocks - Tracking the balance
     on the prev_hash, hash, list of transactions, nonce, and time of each
     block.
 
+
+
+
+FORKING:
+For forking, we will address simultaneous blocks on the network level. If,
+say, there are two chains, and a fork occurs creating blocks A and B,
+the chains will individually just accept whatever block comes first,
+since both blocks will have the same height and thus have no priority
+over the other. This creates a scenario where chain 1 may lead with
+block A, while chain 2 leads with block B. At this point, it is a matter
+of which block will be mined next. If A's block is mined next, chain 1
+will simply append it, while chain 2 will detect that this new block is
+not only inconsistent with its own chain but that it also has a longer
+height. In this case, chain 2 will reach out to other peers to find the
+peer with the matching block. When found, it will simply replace its own
+chain with this new longest chain. Additionally, the mempool will also be
+sent over along with the chain so that the receiving peer is in sync with
+the sending one.
+
+CONNECTING/DISCONNECTING:
+Our current protocol allows for connecting and disconnecting mid session.
+In other words, if users A and B joins, makes some transactions, and user
+C joins, then user C will have no problem catching up to the correct chain
+and being in sync with the rest of the network.
+When a peer leaves, it is also able to leave gracefully.
+
+We did make a specific design consideration where if a peer disconnects, then
+it is impossible for that same peer to reconnect. Essentially, once you leave
+the blockchain network, you cannot participate in it anymore. You can only
+reconnect as a different user.
+
+
+
+
 REMAINING DESIGN IMPLEMENTATION REQUIREMENTS:
 Currently, our implementation is only feasible on a single computer.
 There is only one blockchain, and every Wallet makes transactions on
@@ -236,47 +270,4 @@ block and mine the new block.
 
 Below is an example of what our repository may be structured like:
 
-```
-micro-crypto-economy/
-│
-├── blockchain/                 # Core blockchain logic
-│   ├── __init__.py
-│   ├── wallet.py               # Wallet + signature logic
-│   ├── transaction.py          # Transaction object
-│   ├── block.py                # Block object
-│   └── chain.py                # Chain logic, mempool, mining, balances
-│
-├── network/                    # P2P network and tracker communication
-│   ├── __init__.py
-│   ├── peer.py                 # Each peer runs this (node logic)
-│   ├── tracker.py              # Tracker server
-│   └── connection.py           # Socket/gRPC wrappers (connect, broadcast)
-│
-├── scripts/                    # Simulation scripts for testing behavior
-│   ├── run_script.py           # Runs a peer using instructions in a script.txt
-│   └── example_script.txt      # Sample: Alice sends Bob 5, mine, print balance
-│
-├── tests/
-│   ├── test_chain.py           # Test mining, fork resolution, double spend
-│   ├── test_transaction.py     # Signature verification, invalid tx rejection
-│   └── ...
-│
-├── utils/
-│   ├── crypto.py               # Hashing, signing, base64 utils
-│   └── config.py               # Constants: difficulty, port #s, etc.
-│
-├── run_peer.py                 # Entrypoint to launch a peer node
-├── run_tracker.py              # Entrypoint to launch the tracker
-├── requirements.txt
-└── README.md
-```
 
-Potential script.txt for reference:
-CREATE_WALLET Alice
-CREATE_WALLET Bob
-SEND Alice 10 Bob
-SEND Alice 15 Bob
-MINE Alice
-BALANCE Alice
-BALANCE Bob
-CHAIN
